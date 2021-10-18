@@ -1,6 +1,6 @@
 """
 the demo which come from:
-https://tensorflow.google.cn/xla/tutorials/autoclustering_xla
+https://www.jianshu.com/p/6beedc7f83da
 """
 
 import os
@@ -12,13 +12,15 @@ tf.keras.backend.clear_session()
 tf.config.optimizer.set_jit(True) # Start with XLA disabled.
 tf.debugging.set_log_device_placement(True)
 
-MODEL_FILE = "cifar.json"
-MODEL_DATA_FILE = "cifar.h5"
+MODEL_FILE = "lenet.json"
+MODEL_DATA_FILE = "lenet.h5"
 
 def load_data():
-  (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
-  x_train = x_train.astype('float32') / 256
-  x_test = x_test.astype('float32') / 256
+  (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+  x_train = x_train.reshape(x_train.shape[0], 28, 28, 1)
+  x_test = x_test.reshape(x_test.shape[0], 28, 28, 1)
+  x_train = x_train.astype('float32') / 255
+  x_test = x_test.astype('float32') / 255
 
   # Convert class vectors to binary class matrices.
   y_train = tf.keras.utils.to_categorical(y_train, num_classes=10)
@@ -35,26 +37,14 @@ y_test = y_test[0:1,:]
 
 def generate_model():
   return tf.keras.models.Sequential([
-    tf.keras.layers.Conv2D(16, (2, 4), padding='same', input_shape=x_train.shape[1:], use_bias=False),
-    # tf.keras.layers.Activation('relu'),
-    tf.keras.layers.Conv2D(8, (4, 2), use_bias=False),
-    # tf.keras.layers.Activation('relu'),
-    # tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
-    # tf.keras.layers.Dropout(0.25),
-
-    # tf.keras.layers.Conv2D(64, (3, 3), padding='same'),
-    # tf.keras.layers.Activation('relu'),
-    # tf.keras.layers.Conv2D(64, (3, 3)),
-    # tf.keras.layers.Activation('relu'),
-    # tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
-    # tf.keras.layers.Dropout(0.25),
-
+    tf.keras.layers.Conv2D(6, kernel_size=(5, 5), activation='relu', input_shape=x_train.shape[1:]),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+    tf.keras.layers.Conv2D(16, kernel_size=(5, 5), activation='relu'),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
     tf.keras.layers.Flatten(),
-    # tf.keras.layers.Dense(512),
-    # tf.keras.layers.Activation('relu'),
-    # tf.keras.layers.Dropout(0.5),
-    tf.keras.layers.Dense(10, use_bias=False),
-    tf.keras.layers.Activation('softmax')
+    tf.keras.layers.Dense(120, activation='relu'),
+    tf.keras.layers.Dense(84, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax'),
   ])
 
 def compile_model(model):
@@ -120,7 +110,6 @@ model.summary()
 weight_grads = get_weight_grad(model, x_train, y_train)
 dump_tensors(weight_grads, "grads", model.trainable_weights)
 
-
 if not os.path.exists(MODEL_FILE):
   json_string = model.to_json()
   open(MODEL_FILE, 'w').write(json_string) 
@@ -128,6 +117,7 @@ if not os.path.exists(MODEL_FILE):
   print("RRR : save model.")
 
 dump_tensors(weights, "after")
+model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
 
 # outputs = [layer.output for layer in model.layers][1:] # all layer outputs except first (input) layer
 # functor = tf.keras.backend.function([model.input], outputs)
