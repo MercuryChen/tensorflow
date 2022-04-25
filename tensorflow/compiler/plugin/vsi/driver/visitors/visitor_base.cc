@@ -53,12 +53,22 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     const HloComputation& computation,
     std::vector<Literal>& argument_literals) {
   arg_literals_ = std::move(argument_literals);
-  auto input_tensors = graph_->InputsTensor();
 
-  if (is_build_ && !arg_literals_.empty()) {
-    // input_tensors include not only mutable parameters(arg_literals_) but also
-    // const parameters.
-    LOG(INFO) << "BaseVisitor::evaluate 0";
+  computation.Accept(this);
+
+  graph_->PrintGraph();
+
+#if THRIFT_RPC
+  remote_exectable_ = executor_->remote_executor_->Compile(graph_);
+#else
+  if (!graph_->Compile()) {
+    LOG(FATAL) << "Compile graph fail.";
+    return {};
+  }
+#endif
+
+  auto input_tensors = graph_->InputsTensor();
+  if (!arg_literals_.empty()) {
     CHECK_LE(arg_literals_.size(), input_tensors.size());
 
     for (uint32_t i = 0; i < arg_literals_.size(); i++) {
@@ -69,27 +79,40 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
         if (input_id == input_tensor->GetId()) {
           ShapeIndex shapeIndex({});
           void* buffer = input_literal.untyped_data(shapeIndex);
-
+#if THRIFT_RPC
+          auto input_spec = input_tensor->GetSpec();
+          auto remote_input_tensor = remote_exectable_->AllocateTensor(input_spec);
+          input_tensor->CopyDataToTensor(buffer,
+                                         input_literal.size_bytes(shapeIndex));
+          remote_exectable_->SetInput(remote_input_tensor);
+#else
           input_tensor->CopyDataToTensor(buffer);
+#endif
           break;
         }
       }
     }
-  } else {
-    LOG(INFO) << "BaseVisitor::evaluate 1";
-    computation.Accept(this);
   }
-  graph_->PrintGraph();
-  std::vector<std::shared_ptr<tim::vx::Tensor>> fault_result;
-  if (!graph_->Compile()) {
-    LOG(FATAL) << "Compile graph fail.";
-    return fault_result;
+
+#if THRIFT_RPC
+  auto output_tensors = graph_->OutputsTensor();
+  for (auto output_tensor : output_tensors) {
+    auto output_spec = output_tensor->GetSpec();
+    auto remote_output_tensor = remote_exectable_->AllocateTensor(output_spec);
+    remote_exectable_->SetOutput(remote_output_tensor);
+    remote_outputs_.push_back(remote_output_tensor);
   }
+#endif
+
+#if THRIFT_RPC
+  remote_exectable_->Submit(remote_exectable_);
+  executor_->remote_executor_->Trigger(true);
+#else
   if (!graph_->Run()) {
     LOG(FATAL) << "Run graph fail";
-    return fault_result;
+    return {};
   }
-  is_build_ = true;
+#endif
 
   return GetEvaluatedTensorFor(computation.root_instruction());
 }
@@ -1166,11 +1189,12 @@ Status BaseVisitor::HandleParameter(HloInstruction* hlo) {
       << ", but input literal shape is: "
       << ShapeUtil::HumanStringWithLayout(input_literal.shape());
 
+
   if (kVsiRunTensorContainer_.find(hlo) == kVsiRunTensorContainer_.end()) {
-    ShapeIndex shapeIndex({});
-    void* buffer = input_literal.untyped_data(shapeIndex);
+    // ShapeIndex shapeIndex({});
+    // void* buffer = input_literal.untyped_data(shapeIndex);
     auto timTensor = createTensorFromShape(input_literal.shape());
-    timTensor->CopyDataToTensor(buffer);
+    // timTensor->CopyDataToTensor(buffer);
     kVsiRunTensorContainer_[hlo].push_back(timTensor);
     kVsiInputId_[hlo->parameter_number()] = timTensor->GetId();
   }

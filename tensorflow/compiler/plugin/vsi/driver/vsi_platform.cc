@@ -35,6 +35,7 @@ namespace vsiplugin{
 
 VsiPlatform::VsiPlatform() {
   kVsiContext = tim::vx::Context::Create();
+
 }
 
 VsiPlatform::~VsiPlatform() {}
@@ -81,7 +82,7 @@ port::StatusOr<std::unique_ptr<se::StreamExecutor>>
 VsiPlatform::GetUncachedExecutor(
     const se::StreamExecutorConfig& config) {
 
-// LOG(FATAL) << "not yet implemented: register executor trace listener";
+  LOG(INFO) << "PROCESS " << __FUNCTION__;
 
 // TODO: open it when to finish implement of VsiExecutor
   auto executor = absl::make_unique<se::StreamExecutor>(

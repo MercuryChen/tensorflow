@@ -32,10 +32,27 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
                          se::PluginConfig pluginConfig)
     : kVsiContext(vsiCtx), ordinal_(device_ordinal), plugConfig_(pluginConfig) {
   std::unique_lock<std::mutex> lock(mutex_);
+  LOG(INFO) << __FUNCTION__ << " UFO";
   // kVsiGraphContainer[ordinal_] = kVsiContext->CreateGraph();
+#if THRIFT_RPC
+  std::string serviceName = "TrainingDemo";
+  socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
+  transport_ = std::make_shared<TBufferedTransport>(socket_);
+  protocol_ = std::make_shared<TBinaryProtocol>(transport_);
+  multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
+  client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
+  transport_->open();
+
+  int32_t device_handles = client_->Enumerate();
+  int32_t device_handle = device_handles - 1;
+  remote_device_ =
+      std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
+  remote_executor_ =
+      std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
+#endif
 }
 
-VsiExecutor::~VsiExecutor() { LOG(FATAL) << "Not Implemented"; }
+VsiExecutor::~VsiExecutor() { LOG(INFO) << __FUNCTION__ << " Not Implemented"; }
 
 // TODO: temprarily use 1d tensor
 se::DeviceMemoryBase VsiExecutor::Allocate(uint64 size, int64 memory_space) {
@@ -55,7 +72,7 @@ se::DeviceMemoryBase VsiExecutor::Allocate(uint64 size, int64 memory_space) {
 
 void* VsiExecutor::GetSubBuffer(se::DeviceMemoryBase* parent, uint64 offset,
                                 uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return nullptr;
 }
 
@@ -78,21 +95,21 @@ void* VsiExecutor::HostMemoryAllocate(uint64 size) {
 }
 void VsiExecutor::HostMemoryDeallocate(void* mem) { free(mem); }
 bool VsiExecutor::HostMemoryRegister(void* mem, uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
 }
 bool VsiExecutor::HostMemoryUnregister(void* mem) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
 }
 bool VsiExecutor::SynchronizeAllActivity() { return true; }
 
 port::Status VsiExecutor::SynchronousMemZero(se::DeviceMemoryBase* location,
                                              uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::SynchronousMemSet(se::DeviceMemoryBase* location,
                                             int value, uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::SynchronousMemcpy(se::DeviceMemoryBase* gpu_dst,
@@ -125,18 +142,18 @@ port::Status VsiExecutor::SynchronousMemcpy(void* host_dst,
 port::Status VsiExecutor::SynchronousMemcpyDeviceToDevice(
     se::DeviceMemoryBase* gpu_dst, const se::DeviceMemoryBase& gpu_src,
     uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::MemZero(se::Stream* stream,
                                   se::DeviceMemoryBase* location, uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::Memset32(se::Stream* stream,
                                    se::DeviceMemoryBase* location,
                                    uint32 pattern, uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 
@@ -161,7 +178,7 @@ bool VsiExecutor::MemcpyDeviceToDevice(se::Stream* stream,
                                        se::DeviceMemoryBase* gpu_dst,
                                        const se::DeviceMemoryBase& gpu_src,
                                        uint64 size) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
 }
 
 se::host::HostStream* VsiExecutor::AsVsiStream(se::Stream* stream) {
@@ -177,22 +194,22 @@ bool VsiExecutor::HostCallback(se::Stream* stream,
 }
 bool VsiExecutor::HostCallback(se::Stream* stream,
                                std::function<port::Status()> callback) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
 }
 port::Status VsiExecutor::AllocateEvent(se::Event* event) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::DeallocateEvent(se::Event* event) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::RecordEvent(se::Stream* stream, se::Event* event) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 port::Status VsiExecutor::WaitForEvent(se::Stream* stream, se::Event* event) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 se::Event::Status VsiExecutor::PollForEventStatus(se::Event* event) {
@@ -223,13 +240,13 @@ port::Status VsiExecutor::BlockHostUntilDone(se::Stream* stream) {
   AsVsiStream(stream)->BlockUntilDone();
   return port::Status::OK();
 }
-int VsiExecutor::PlatformDeviceCount() { LOG(FATAL) << "Not Implemented"; }
+int VsiExecutor::PlatformDeviceCount() { LOG(FATAL) << __FUNCTION__ << " Not Implemented"; }
 port::Status VsiExecutor::EnablePeerAccessTo(StreamExecutorInterface* other) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
 }
 bool VsiExecutor::CanEnablePeerAccessTo(StreamExecutorInterface* other) {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
 }
 
 port::StatusOr<std::unique_ptr<se::DeviceDescription>>
@@ -239,19 +256,19 @@ VsiExecutor::CreateDeviceDescription() const {
   builder.set_device_address_bits(64);
 
   builder.set_name("vsi-npu");
-  builder.set_device_memory_size(static_cast<uint64>(4) * 1024 * 1024 * 1024);
+  builder.set_device_memory_size(static_cast<uint64>(8) * 1024 * 1024 * 1024);
 
   return builder.Build();
 }
 
 std::unique_ptr<se::internal::EventInterface>
 VsiExecutor::CreateEventImplementation() {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return nullptr;
 }
 std::unique_ptr<se::internal::KernelInterface>
 VsiExecutor::CreateKernelImplementation() {
-  LOG(FATAL) << "Not Implemented";
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return nullptr;
 }
 std::unique_ptr<se::internal::StreamInterface>

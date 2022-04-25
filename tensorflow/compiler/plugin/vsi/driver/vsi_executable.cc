@@ -168,6 +168,8 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       transfer_manager->AllocateScopedShapedBuffer(
           result_shape, run_options->allocator(), executor->device_ordinal()));
 
+  visitor_->remote_exectable_->GetOutput(visitor_->remote_outputs_);
+
   if (!result_shape.IsTuple()) {
     for (auto& pair : result_buffers.buffers()) {
       const ShapeIndex& index = pair.first;
@@ -175,7 +177,11 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       const Shape& subshape =
           ShapeUtil::GetSubshape(result_buffers.on_device_shape(), index);
       LOG(INFO) << "no-tuple  result buffer info " << subshape.ToString();
+#if THRIFT_RPC
+      visitor_->remote_outputs_[0]->CopyDataFromTensor(memory_base.opaque());
+#else
       tensor[0]->CopyDataFromTensor(memory_base.opaque());
+#endif
       float* val = (float*)(memory_base.opaque());
       LOG(INFO) << "memory_base.opaque: " << *val;
     }
@@ -202,8 +208,12 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       const Shape& subshape =
           ShapeUtil::GetSubshape(result_buffers.on_device_shape(), index);
       LOG(INFO) << "tuple result buffer info " << subshape.ToString();
-
+#if THRIFT_RPC
+      visitor_->remote_outputs_[count - 1]->CopyDataFromTensor(
+          memory_base.opaque());
+#else
       tensor[count - 1]->CopyDataFromTensor(memory_base.opaque());
+#endif
       *(size_t*)(top_memory_base.opaque() + sizeof(void*) * (count - 1)) =
           (size_t)memory_base.opaque();
       LOG(INFO) << "sub tensor mem is " << memory_base.opaque();
