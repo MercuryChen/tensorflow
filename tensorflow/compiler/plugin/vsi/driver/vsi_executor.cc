@@ -21,34 +21,102 @@ limitations under the License.
 #include "tensorflow/stream_executor/host/host_stream.h"
 #include "tensorflow/stream_executor/host/host_timer.h"
 #include "tim/vx/tensor.h"
+#include "tim/vx/operation.h"
+#include "tim/vx/ops.h"
 
 namespace xla {
 namespace vsiplugin {
 
 const int invalid_index = 0x7fffff;
 
+using namespace std;
+using namespace apache::thrift::transport;
+using namespace apache::thrift::protocol;
+using namespace shared;
+
+int rpc_demo() {
+   /***********************generate client****************************/
+    // transport layer
+    std::shared_ptr<TTransport> socket(new TSocket(boss_socket_client(8080, 0)));
+    std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+    // protocol layer
+    std::shared_ptr<TProtocol> mProtocol(new TBinaryProtocol(transport));
+    string serviceName = "TrainingDemo";
+    // use multilexedprotol
+    std::shared_ptr<TMultiplexedProtocol> protocol(new TMultiplexedProtocol(mProtocol, serviceName));
+    // create client
+    shared_ptr<shared::RemoteClientClient> client(new shared::RemoteClientClient(protocol, protocol));
+    transport->open();
+    /***********************generate graph*****************************/
+    auto ctx = tim::vx::Context::Create();
+    auto graph = ctx->CreateGraph();
+    tim::vx::ShapeType a_shape({1, 2});
+    tim::vx::ShapeType out_shape({1, 2});
+
+    tim::vx::TensorSpec a_spec(tim::vx::DataType::FLOAT32,
+                               a_shape, tim::vx::TensorAttribute::INPUT);
+    tim::vx::TensorSpec out_spec(tim::vx::DataType::FLOAT32,
+                                 out_shape, tim::vx::TensorAttribute::OUTPUT);
+    auto a_tensor = graph->CreateTensor(a_spec);
+    auto out_tensor = graph->CreateTensor(out_spec);
+    auto op_relu = graph->CreateOperation<tim::vx::ops::Relu>();
+    (*op_relu).BindInputs({a_tensor}).BindOutputs({out_tensor});
+
+    uint32_t data_size = 2;
+    std::vector<float> input_a_data{3,-1};
+    std::vector<float> output_data(data_size);
+    int64_t tensor_size = sizeof(float)*data_size;
+    /***********************run code******************************/
+    int32_t device_handles = client->Enumerate();
+    int32_t device_handle = device_handles - 1;
+    std::shared_ptr<tim::vx::platform::IDevice> remote_device= std::make_shared<tim::vx::platform::RemoteDevice>(client,device_handle);
+    auto remote_executor= std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device);
+    auto remote_exectable = remote_executor->Compile(graph);
+
+    auto input_tensor = remote_exectable->AllocateTensor(a_spec);
+    input_tensor->CopyDataToTensor(input_a_data.data(),tensor_size);
+    remote_exectable->SetInput(input_tensor);
+
+    auto output_tensor = remote_exectable->AllocateTensor(out_spec);
+    output_tensor->CopyDataToTensor(output_data.data(),tensor_size);
+    remote_exectable->SetOutput(output_tensor);
+
+    remote_exectable->Submit(remote_exectable);
+
+    remote_executor->Trigger(true);
+    std::cout<<"##### end code"<<std::endl;
+
+    std::vector<float> result(data_size);
+    remote_exectable->GetOutput({output_tensor});
+    output_tensor->CopyDataFromTensor(result.data());
+    std::cout<<"#####final result is "<<result[0]<<" "<<result[1]<<std::endl;
+    return 1;
+}
+
 VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
                          const int device_ordinal,
                          se::PluginConfig pluginConfig)
     : kVsiContext(vsiCtx), ordinal_(device_ordinal), plugConfig_(pluginConfig) {
   std::unique_lock<std::mutex> lock(mutex_);
-  LOG(INFO) << __FUNCTION__ << " UFO";
+  LOG(INFO) << __FUNCTION__ << " UUU 0";
   // kVsiGraphContainer[ordinal_] = kVsiContext->CreateGraph();
 #if THRIFT_RPC
-  std::string serviceName = "TrainingDemo";
-  socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
-  transport_ = std::make_shared<TBufferedTransport>(socket_);
-  protocol_ = std::make_shared<TBinaryProtocol>(transport_);
-  multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
-  client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
-  transport_->open();
+//   std::string serviceName = "TrainingDemo";
+//   socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
+//   transport_ = std::make_shared<TBufferedTransport>(socket_);
+//   protocol_ = std::make_shared<TBinaryProtocol>(transport_);
+//   multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
+//   client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
+//   transport_->open();
 
-  int32_t device_handles = client_->Enumerate();
-  int32_t device_handle = device_handles - 1;
-  remote_device_ =
-      std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
-  remote_executor_ =
-      std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
+//   int32_t device_handles = client_->Enumerate();
+//   int32_t device_handle = device_handles - 1;
+//   remote_device_ =
+//       std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
+//   remote_executor_ =
+//       std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
+
+    rpc_demo(); 
 #endif
 }
 

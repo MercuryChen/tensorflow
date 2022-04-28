@@ -167,8 +167,9 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       ScopedShapedBuffer result_buffers,
       transfer_manager->AllocateScopedShapedBuffer(
           result_shape, run_options->allocator(), executor->device_ordinal()));
-
+#if THRIFT_RPC
   visitor_->remote_exectable_->GetOutput(visitor_->remote_outputs_);
+#endif
 
   if (!result_shape.IsTuple()) {
     for (auto& pair : result_buffers.buffers()) {

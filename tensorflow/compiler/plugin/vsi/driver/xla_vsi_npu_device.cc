@@ -100,7 +100,7 @@ std::vector<DataType> GetVsiNpuSupportedTypes() {
 };
 
 static bool OpFilter(KernelDef* kdef) {
-  std::cout << "OpFilter : " << kdef->op() << std::endl;
+  LOG(INFO) << "OpFilter : " << kdef->op();
 
   if (kdef->op() == "_Arg") return true;
   if (kdef->op() == "VarIsInitializedOp") return true;
@@ -110,28 +110,28 @@ static bool OpFilter(KernelDef* kdef) {
   if (kdef->op() == "ReadVariableOp") return true;
   if (kdef->op() == "AssignAddVariableOp") return true;
 
-  if (kdef->op() == "Add") return true;
-  if (kdef->op() == "AddV2") return true;
-  if (kdef->op() == "BiasAdd") return true;
-  if (kdef->op() == "BiasAddGrad") return true;
-  if (kdef->op() == "Sub") return true;
-  if (kdef->op() == "Sqrt") return true;
-  if (kdef->op() == "Square") return true;
-  if (kdef->op() == "Mul") return true;
-  if (kdef->op() == "MatMul") return true;
+  // if (kdef->op() == "Add") return true;
+  // if (kdef->op() == "AddV2") return true;
+  // if (kdef->op() == "BiasAdd") return true;
+  // if (kdef->op() == "BiasAddGrad") return true;
+  // if (kdef->op() == "Sub") return true;
+  // if (kdef->op() == "Sqrt") return true;
+  // if (kdef->op() == "Square") return true;
+  // if (kdef->op() == "Mul") return true;
+  // if (kdef->op() == "MatMul") return true;
   if (kdef->op() == "Conv2D") return true;
-  if (kdef->op() == "Conv2DBackpropInput") return true;
-  if (kdef->op() == "Conv2DBackpropFilter") return true;
-  if (kdef->op() == "Relu") return true;
-  if (kdef->op() == "ReluGrad") return true;
-  if (kdef->op() == "BroadcastTo") return true;
-  if (kdef->op() == "Sum") return true;
-  if (kdef->op() == "Equal") return true;
-  if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
-  if (kdef->op() == "Pack") return true;
-  if (kdef->op() == "ConcatV2") return true;
-  if (kdef->op() == "Reshape") return true;
-  if (kdef->op() == "MaxPool") return true;
+  // if (kdef->op() == "Conv2DBackpropInput") return true;
+  // if (kdef->op() == "Conv2DBackpropFilter") return true;
+  // if (kdef->op() == "Relu") return true;
+  // if (kdef->op() == "ReluGrad") return true;
+  // if (kdef->op() == "BroadcastTo") return true;
+  // if (kdef->op() == "Sum") return true;
+  // if (kdef->op() == "Equal") return true;
+  // if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
+  // if (kdef->op() == "Pack") return true;
+  // if (kdef->op() == "ConcatV2") return true;
+  // if (kdef->op() == "Reshape") return true;
+  // if (kdef->op() == "MaxPool") return true;
   // if (kdef->op() == "MaxPoolGrad") return true;
 
   // if (kdef->op() == "XlaDot") return true;

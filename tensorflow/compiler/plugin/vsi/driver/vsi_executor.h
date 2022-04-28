@@ -30,7 +30,6 @@ limitations under the License.
 #define THRIFT_RPC 1
 
 #if THRIFT_RPC
-#define HAVE_BXIPC 1
 #include "tim/vx/platform/remote.h"
 #include "tim/vx/platform/native.h"
 #include <thrift/protocol/TBinaryProtocol.h>

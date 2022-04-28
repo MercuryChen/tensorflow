@@ -52,6 +52,7 @@ Literal BaseVisitor::evaluate(
 std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     const HloComputation& computation,
     std::vector<Literal>& argument_literals) {
+  LOG(INFO) << __FUNCTION__ << " UUU 0";
   arg_literals_ = std::move(argument_literals);
 
   computation.Accept(this);
@@ -59,7 +60,9 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
   graph_->PrintGraph();
 
 #if THRIFT_RPC
+  LOG(INFO) << __FUNCTION__ << " UUU 1";
   remote_exectable_ = executor_->remote_executor_->Compile(graph_);
+  LOG(INFO) << __FUNCTION__ << " UUU 2";
 #else
   if (!graph_->Compile()) {
     LOG(FATAL) << "Compile graph fail.";
@@ -80,11 +83,14 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
           ShapeIndex shapeIndex({});
           void* buffer = input_literal.untyped_data(shapeIndex);
 #if THRIFT_RPC
+          LOG(INFO) << __FUNCTION__ << " UUU 3";
           auto input_spec = input_tensor->GetSpec();
           auto remote_input_tensor = remote_exectable_->AllocateTensor(input_spec);
+          LOG(INFO) << __FUNCTION__ << " UUU 4";
           input_tensor->CopyDataToTensor(buffer,
                                          input_literal.size_bytes(shapeIndex));
           remote_exectable_->SetInput(remote_input_tensor);
+          LOG(INFO) << __FUNCTION__ << " UUU 5";
 #else
           input_tensor->CopyDataToTensor(buffer);
 #endif
