@@ -73,7 +73,8 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
   auto input_tensors = graph_->InputsTensor();
   if (!arg_literals_.empty()) {
     CHECK_LE(arg_literals_.size(), input_tensors.size());
-
+    LOG(INFO) << __FUNCTION__ << " UUU 2A arg_literals_.size: " << arg_literals_.size();
+    LOG(INFO) << __FUNCTION__ << " UUU 2A input_tensors.size: " << input_tensors.size();
     for (uint32_t i = 0; i < arg_literals_.size(); i++) {
       auto& input_literal = arg_literals_[i];
       uint32_t input_id = kVsiInputId_[static_cast<int64_t>(i)];
@@ -83,11 +84,11 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
           ShapeIndex shapeIndex({});
           void* buffer = input_literal.untyped_data(shapeIndex);
 #if THRIFT_RPC
-          LOG(INFO) << __FUNCTION__ << " UUU 3";
+          LOG(INFO) << __FUNCTION__ << " UUU 3: " << input_id;
           auto input_spec = input_tensor->GetSpec();
           auto remote_input_tensor = remote_exectable_->AllocateTensor(input_spec);
           LOG(INFO) << __FUNCTION__ << " UUU 4";
-          input_tensor->CopyDataToTensor(buffer,
+          remote_input_tensor->CopyDataToTensor(buffer,
                                          input_literal.size_bytes(shapeIndex));
           remote_exectable_->SetInput(remote_input_tensor);
           LOG(INFO) << __FUNCTION__ << " UUU 5";
@@ -102,17 +103,24 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
 
 #if THRIFT_RPC
   auto output_tensors = graph_->OutputsTensor();
+  LOG(INFO) << __FUNCTION__ << " UUU 6 output_tensors.size: " << output_tensors.size();
   for (auto output_tensor : output_tensors) {
     auto output_spec = output_tensor->GetSpec();
+    LOG(INFO) << __FUNCTION__ << " UUU 7";
     auto remote_output_tensor = remote_exectable_->AllocateTensor(output_spec);
+    LOG(INFO) << __FUNCTION__ << " UUU 8";
     remote_exectable_->SetOutput(remote_output_tensor);
+    LOG(INFO) << __FUNCTION__ << " UUU 9";
     remote_outputs_.push_back(remote_output_tensor);
+    LOG(INFO) << __FUNCTION__ << " UUU 10";
   }
 #endif
 
 #if THRIFT_RPC
   remote_exectable_->Submit(remote_exectable_);
+  LOG(INFO) << __FUNCTION__ << " UUU 11";
   executor_->remote_executor_->Trigger(true);
+  LOG(INFO) << __FUNCTION__ << " UUU 12";
 #else
   if (!graph_->Run()) {
     LOG(FATAL) << "Run graph fail";
