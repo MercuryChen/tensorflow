@@ -84,12 +84,12 @@ int rpc_demo() {
     remote_exectable->Submit(remote_exectable);
 
     remote_executor->Trigger(true);
-    std::cout<<"##### end code"<<std::endl;
+    std::cerr<<"##### end code"<<std::endl;
 
     std::vector<float> result(data_size);
     remote_exectable->GetOutput({output_tensor});
     output_tensor->CopyDataFromTensor(result.data());
-    std::cout<<"#####final result is "<<result[0]<<" "<<result[1]<<std::endl;
+    std::cerr<<"#####final result is "<<result[0]<<" "<<result[1]<<std::endl;
     return 1;
 }
 
@@ -101,22 +101,22 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
   LOG(INFO) << __FUNCTION__ << " UUU 0";
   // kVsiGraphContainer[ordinal_] = kVsiContext->CreateGraph();
 #if THRIFT_RPC
-//   std::string serviceName = "TrainingDemo";
-//   socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
-//   transport_ = std::make_shared<TBufferedTransport>(socket_);
-//   protocol_ = std::make_shared<TBinaryProtocol>(transport_);
-//   multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
-//   client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
-//   transport_->open();
+  std::string serviceName = "TrainingDemo";
+  socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
+  transport_ = std::make_shared<TBufferedTransport>(socket_);
+  protocol_ = std::make_shared<TBinaryProtocol>(transport_);
+  multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
+  client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
+  transport_->open();
 
-//   int32_t device_handles = client_->Enumerate();
-//   int32_t device_handle = device_handles - 1;
-//   remote_device_ =
-//       std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
-//   remote_executor_ =
-//       std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
+  int32_t device_handles = client_->Enumerate();
+  int32_t device_handle = device_handles - 1;
+  remote_device_ =
+      std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
+  remote_executor_ =
+      std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
 
-    rpc_demo(); 
+  // rpc_demo();
 #endif
 }
 

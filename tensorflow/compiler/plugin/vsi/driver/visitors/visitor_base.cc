@@ -104,11 +104,14 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
 #if THRIFT_RPC
   auto output_tensors = graph_->OutputsTensor();
   LOG(INFO) << __FUNCTION__ << " UUU 6 output_tensors.size: " << output_tensors.size();
+  remote_outputs_.clear();
   for (auto output_tensor : output_tensors) {
     auto output_spec = output_tensor->GetSpec();
     LOG(INFO) << __FUNCTION__ << " UUU 7";
     auto remote_output_tensor = remote_exectable_->AllocateTensor(output_spec);
     LOG(INFO) << __FUNCTION__ << " UUU 8";
+    remote_output_tensor->CopyDataToTensor(nullptr,
+                                         output_spec.GetByteSize());
     remote_exectable_->SetOutput(remote_output_tensor);
     LOG(INFO) << __FUNCTION__ << " UUU 9";
     remote_outputs_.push_back(remote_output_tensor);

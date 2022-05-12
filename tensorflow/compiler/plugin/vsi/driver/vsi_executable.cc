@@ -162,16 +162,20 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
   // Transform the result literal back into a ShapedBuffer.
   auto root_instr = computation->root_instruction();
   const Shape& result_shape = root_instr->shape();
-
+  LOG(INFO) << "ExecuteAsyncOnStream NNN 0: ";
   TF_ASSIGN_OR_RETURN(
       ScopedShapedBuffer result_buffers,
       transfer_manager->AllocateScopedShapedBuffer(
           result_shape, run_options->allocator(), executor->device_ordinal()));
 #if THRIFT_RPC
+  LOG(INFO) << "GetOutput QQQ remote_outputs_.size: " << visitor_->remote_outputs_.size();
   visitor_->remote_exectable_->GetOutput(visitor_->remote_outputs_);
 #endif
 
+  LOG(INFO) << "GetOutput QQQ result_buffers: " << result_buffers.ToString();
+
   if (!result_shape.IsTuple()) {
+    LOG(INFO) << "GetOutput QQQ 1: ";
     for (auto& pair : result_buffers.buffers()) {
       const ShapeIndex& index = pair.first;
       se::DeviceMemoryBase& memory_base = pair.second;
@@ -179,14 +183,15 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
           ShapeUtil::GetSubshape(result_buffers.on_device_shape(), index);
       LOG(INFO) << "no-tuple  result buffer info " << subshape.ToString();
 #if THRIFT_RPC
-      visitor_->remote_outputs_[0]->CopyDataFromTensor(memory_base.opaque());
+      visitor_->remote_outputs_[visitor_->remote_outputs_.size() - 1]->CopyDataFromTensor(memory_base.opaque());
 #else
       tensor[0]->CopyDataFromTensor(memory_base.opaque());
 #endif
-      float* val = (float*)(memory_base.opaque());
-      LOG(INFO) << "memory_base.opaque: " << *val;
+      // float* val = (float*)(memory_base.opaque());
+      // LOG(INFO) << "memory_base.opaque: " << *val;
     }
   } else {
+    LOG(INFO) << "GetOutput QQQ 2: ";
     int32_t count = 0;
     auto top_shape_memory = result_buffers.buffers();
 
