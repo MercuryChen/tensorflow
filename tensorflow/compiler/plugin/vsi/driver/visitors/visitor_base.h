@@ -46,119 +46,18 @@ class BaseVisitor : public DfsHloVisitor {
 
   std::shared_ptr<tim::vx::Tensor> createTensorFromTupleShape(
       const Shape& shape, int64 index,
-      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT) {
-    tim::vx::ShapeType timShape;
-    tim::vx::Quantization timQuant;
-    std::cout << "shape info 0: ";
-
-    auto output_shape = shape.tuple_shapes(index);
-
-    if (output_shape.is_static() && output_shape.has_layout()) {
-      for (auto d : output_shape.layout().minor_to_major())
-        timShape.push_back(output_shape.dimensions(d));
-    }
-
-    if (timShape.size() == 0) {
-      timShape.push_back(1);
-    }
-    for (uint32_t i = 0; i < timShape.size(); i++) {
-      std::cout << timShape[i] << " ";
-    }
-    std::cout << std::endl;
-    auto type = convertTfPrimitiveTypeToTim(output_shape.element_type());
-    std::unique_lock<std::mutex> lock(mutex_);
-    tim::vx::TensorSpec timSpec(type, timShape, attr, timQuant);
-    return graph_->CreateTensor(timSpec);
-  }
+      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT);
 
   std::shared_ptr<tim::vx::Tensor> createTensorFromShape(
       const Shape& shape,
-      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT) {
-    tim::vx::ShapeType timShape;
-    tim::vx::Quantization timQuant;
-    std::cout << "shape info 1: ";
-    if (shape.is_static() && shape.has_layout()) {
-      for (auto d : shape.layout().minor_to_major())
-        timShape.push_back(shape.dimensions(d));
-    }
-
-    if (timShape.size() == 0) {
-      timShape.push_back(1);
-    }
-    for (uint32_t i = 0; i < timShape.size(); i++) {
-      std::cout << timShape[i] << " ";
-    }
-    std::cout << std::endl;
-    auto type = convertTfPrimitiveTypeToTim(shape.element_type());
-    std::unique_lock<std::mutex> lock(mutex_);
-    tim::vx::TensorSpec timSpec(type, timShape, attr, timQuant);
-    return graph_->CreateTensor(timSpec);
-  }
+      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT);
 
   std::shared_ptr<tim::vx::Tensor> createTensorFromShape(
       tim::vx::DataType dataType, std::vector<uint32_t> shape,
-      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT) {
-    tim::vx::ShapeType timShape;
-    tim::vx::Quantization timQuant;
-    for (auto d : shape) timShape.push_back(d);
-    std::cout << "shape info 2: ";
-    if (timShape.size() == 0) {
-      timShape.push_back(1);
-    }
-    for (uint32_t i = 0; i < timShape.size(); i++) {
-      std::cout << timShape[i] << " ";
-    }
-    std::cout << std::endl;
-
-    std::unique_lock<std::mutex> lock(mutex_);
-    tim::vx::TensorSpec timSpec(dataType, timShape, attr, timQuant);
-    return graph_->CreateTensor(timSpec);
-  }
+      tim::vx::TensorAttribute attr = tim::vx::TensorAttribute::INPUT);
 
   static tim::vx::DataType convertTfPrimitiveTypeToTim(
-      xla::PrimitiveType xlaType) {
-    LOG(INFO) << "convertTfPrimitiveTypeToTim: xlaType: " << xlaType;
-    switch (xlaType) {
-      case PRED: {
-        return tim::vx::DataType::BOOL8;
-      }
-      case S64: {
-        return tim::vx::DataType::INT32;
-      }
-      case S8: {
-        return tim::vx::DataType::INT8;
-      }
-      case U8: {
-        return tim::vx::DataType::UINT8;
-      }
-      case S16: {
-        return tim::vx::DataType::INT16;
-      }
-      case U16: {
-        return tim::vx::DataType::UINT16;
-      }
-      case S32: {
-        return tim::vx::DataType::INT32;
-      }
-      case U32: {
-        return tim::vx::DataType::UINT32;
-      }
-      case F32: {
-        return tim::vx::DataType::FLOAT32;
-      }
-      case BF16: {
-        return tim::vx::DataType::FLOAT16;
-      }
-      case F16: {
-        return tim::vx::DataType::FLOAT16;
-      }
-      case F64: {
-        return tim::vx::DataType::FLOAT32;
-      }
-      default:
-        LOG(FATAL) << "not supported datat type";
-    }
-  }
+      xla::PrimitiveType xlaType);
 
   /*dim_index: store the demension index info of the $hlo$ as order
     major_to_minor: {N, C, ..... } if it should be inserted a transpose, its

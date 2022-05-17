@@ -49,6 +49,128 @@ Literal BaseVisitor::evaluate(
   return GetEvaluatedLiteralFor(computation.root_instruction()).Clone();
 }
 
+std::shared_ptr<tim::vx::Tensor> BaseVisitor::createTensorFromTupleShape(
+    const Shape& shape, int64 index,
+    tim::vx::TensorAttribute attr) {
+  tim::vx::ShapeType timShape;
+  tim::vx::Quantization timQuant;
+
+  auto output_shape = shape.tuple_shapes(index);
+
+  if (output_shape.is_static() && output_shape.has_layout()) {
+    for (auto d : output_shape.layout().minor_to_major())
+      timShape.push_back(output_shape.dimensions(d));
+  }
+
+  if (timShape.size() == 0) {
+    timShape.push_back(1);
+  }
+  {
+    std::ostringstream ss;
+    for (int i = 0; i < timShape.size(); i++) {
+      ss << timShape[i] << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " shape info 0: " << ss.str();
+  }
+  auto type = convertTfPrimitiveTypeToTim(output_shape.element_type());
+  std::unique_lock<std::mutex> lock(mutex_);
+  tim::vx::TensorSpec timSpec(type, timShape, attr, timQuant);
+  return graph_->CreateTensor(timSpec);
+}
+
+std::shared_ptr<tim::vx::Tensor> BaseVisitor::createTensorFromShape(
+    const Shape& shape,
+    tim::vx::TensorAttribute attr) {
+  tim::vx::ShapeType timShape;
+  tim::vx::Quantization timQuant;
+  if (shape.is_static() && shape.has_layout()) {
+    for (auto d : shape.layout().minor_to_major())
+      timShape.push_back(shape.dimensions(d));
+  }
+
+  if (timShape.size() == 0) {
+    timShape.push_back(1);
+  }
+  {
+    std::ostringstream ss;
+    for (int i = 0; i < timShape.size(); i++) {
+      ss << timShape[i] << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " shape info 1: " << ss.str();
+  }
+  auto type = convertTfPrimitiveTypeToTim(shape.element_type());
+  std::unique_lock<std::mutex> lock(mutex_);
+  tim::vx::TensorSpec timSpec(type, timShape, attr, timQuant);
+  return graph_->CreateTensor(timSpec);
+}
+
+std::shared_ptr<tim::vx::Tensor> BaseVisitor::createTensorFromShape(
+    tim::vx::DataType dataType, std::vector<uint32_t> shape,
+    tim::vx::TensorAttribute attr) {
+  tim::vx::ShapeType timShape;
+  tim::vx::Quantization timQuant;
+  for (auto d : shape) timShape.push_back(d);
+  if (timShape.size() == 0) {
+    timShape.push_back(1);
+  }
+  {
+    std::ostringstream ss;
+    for (int i = 0; i < timShape.size(); i++) {
+      ss << timShape[i] << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " shape info 2: " << ss.str();
+  }
+
+  std::unique_lock<std::mutex> lock(mutex_);
+  tim::vx::TensorSpec timSpec(dataType, timShape, attr, timQuant);
+  return graph_->CreateTensor(timSpec);
+}
+
+tim::vx::DataType BaseVisitor::convertTfPrimitiveTypeToTim(
+    xla::PrimitiveType xlaType) {
+  LOG(INFO) << "convertTfPrimitiveTypeToTim: xlaType: " << xlaType;
+  switch (xlaType) {
+    case PRED: {
+      return tim::vx::DataType::BOOL8;
+    }
+    case S64: {
+      return tim::vx::DataType::INT32;
+    }
+    case S8: {
+      return tim::vx::DataType::INT8;
+    }
+    case U8: {
+      return tim::vx::DataType::UINT8;
+    }
+    case S16: {
+      return tim::vx::DataType::INT16;
+    }
+    case U16: {
+      return tim::vx::DataType::UINT16;
+    }
+    case S32: {
+      return tim::vx::DataType::INT32;
+    }
+    case U32: {
+      return tim::vx::DataType::UINT32;
+    }
+    case F32: {
+      return tim::vx::DataType::FLOAT32;
+    }
+    case BF16: {
+      return tim::vx::DataType::FLOAT16;
+    }
+    case F16: {
+      return tim::vx::DataType::FLOAT16;
+    }
+    case F64: {
+      return tim::vx::DataType::FLOAT32;
+    }
+    default:
+      LOG(FATAL) << "not supported datat type";
+  }
+}
+
 std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     const HloComputation& computation,
     std::vector<Literal>& argument_literals) {
@@ -75,23 +197,24 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     CHECK_LE(arg_literals_.size(), input_tensors.size());
     LOG(INFO) << __FUNCTION__ << " UUU 2A arg_literals_.size: " << arg_literals_.size();
     LOG(INFO) << __FUNCTION__ << " UUU 2A input_tensors.size: " << input_tensors.size();
-    for (uint32_t i = 0; i < arg_literals_.size(); i++) {
-      auto& input_literal = arg_literals_[i];
-      uint32_t input_id = kVsiInputId_[static_cast<int64_t>(i)];
-
-      for (auto input_tensor : input_tensors) {
+    int count = 0;
+    for (auto input_tensor : input_tensors) {
+      for (uint32_t i = 0; i < arg_literals_.size(); i++) {
+        uint32_t input_id = kVsiInputId_[static_cast<int64_t>(i)];
         if (input_id == input_tensor->GetId()) {
+          auto& input_literal = arg_literals_[i];
           ShapeIndex shapeIndex({});
           void* buffer = input_literal.untyped_data(shapeIndex);
 #if THRIFT_RPC
-          LOG(INFO) << __FUNCTION__ << " UUU 3: " << input_id;
+          LOG(INFO) << __FUNCTION__ << " UUU 3: count: " << count << " id: " << input_id;
           auto input_spec = input_tensor->GetSpec();
           auto remote_input_tensor = remote_exectable_->AllocateTensor(input_spec);
-          LOG(INFO) << __FUNCTION__ << " UUU 4";
+          LOG(INFO) << __FUNCTION__ << " UUU 4: " << input_literal.size_bytes(shapeIndex);
           remote_input_tensor->CopyDataToTensor(buffer,
                                          input_literal.size_bytes(shapeIndex));
           remote_exectable_->SetInput(remote_input_tensor);
           LOG(INFO) << __FUNCTION__ << " UUU 5";
+          count++;
 #else
           input_tensor->CopyDataToTensor(buffer);
 #endif
@@ -105,23 +228,26 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
   auto output_tensors = graph_->OutputsTensor();
   LOG(INFO) << __FUNCTION__ << " UUU 6 output_tensors.size: " << output_tensors.size();
   remote_outputs_.clear();
+  int count = 0;
   for (auto output_tensor : output_tensors) {
     auto output_spec = output_tensor->GetSpec();
-    LOG(INFO) << __FUNCTION__ << " UUU 7";
+    LOG(INFO) << __FUNCTION__ << " UUU 7: " << count;
     auto remote_output_tensor = remote_exectable_->AllocateTensor(output_spec);
-    LOG(INFO) << __FUNCTION__ << " UUU 8";
+    LOG(INFO) << __FUNCTION__ << " UUU 8: output_spec.GetByteSize: " << output_spec.GetByteSize();
     remote_output_tensor->CopyDataToTensor(nullptr,
                                          output_spec.GetByteSize());
     remote_exectable_->SetOutput(remote_output_tensor);
     LOG(INFO) << __FUNCTION__ << " UUU 9";
     remote_outputs_.push_back(remote_output_tensor);
     LOG(INFO) << __FUNCTION__ << " UUU 10";
+    count++;
   }
 #endif
 
 #if THRIFT_RPC
+  LOG(INFO) << __FUNCTION__ << " UUU 11A";
   remote_exectable_->Submit(remote_exectable_);
-  LOG(INFO) << __FUNCTION__ << " UUU 11";
+  LOG(INFO) << __FUNCTION__ << " UUU 11B";
   executor_->remote_executor_->Trigger(true);
   LOG(INFO) << __FUNCTION__ << " UUU 12";
 #else
@@ -1227,7 +1353,7 @@ Status BaseVisitor::HandleConstant(HloInstruction* hlo) {
 
     auto& literal = hlo->literal();
     const void* buffer = literal.untyped_data(shapeIndex);
-    auto timTensor = createTensorFromShape(literal.shape());
+    auto timTensor = createTensorFromShape(literal.shape(), tim::vx::TensorAttribute::CONSTANT);
     timTensor->CopyDataToTensor(buffer);
     kVsiRunTensorContainer_[hlo].push_back(timTensor);
   }

@@ -205,9 +205,8 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       }
     }
 
-    count = -1;
+    count = 0;
     for (auto& pair : result_buffers.buffers()) {
-      count++;
       if (count == 0) continue;
       const ShapeIndex& index = pair.first;
       se::DeviceMemoryBase& memory_base = pair.second;
@@ -223,6 +222,7 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
       *(size_t*)(top_memory_base.opaque() + sizeof(void*) * (count - 1)) =
           (size_t)memory_base.opaque();
       LOG(INFO) << "sub tensor mem is " << memory_base.opaque();
+      count++;
     }
   }
   // auto output_size =
