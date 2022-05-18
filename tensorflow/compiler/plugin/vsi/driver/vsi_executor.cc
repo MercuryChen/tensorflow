@@ -29,7 +29,7 @@ namespace vsiplugin {
 
 const int invalid_index = 0x7fffff;
 
-using namespace std;
+#if THRIFT_RPC
 using namespace apache::thrift::transport;
 using namespace apache::thrift::protocol;
 using namespace shared;
@@ -41,7 +41,7 @@ int rpc_demo() {
     std::shared_ptr<TTransport> transport(new TBufferedTransport(socket));
     // protocol layer
     std::shared_ptr<TProtocol> mProtocol(new TBinaryProtocol(transport));
-    string serviceName = "TrainingDemo";
+    std::string serviceName = "TrainingDemo";
     // use multilexedprotol
     std::shared_ptr<TMultiplexedProtocol> protocol(new TMultiplexedProtocol(mProtocol, serviceName));
     // create client
@@ -92,6 +92,7 @@ int rpc_demo() {
     std::cerr<<"#####final result is "<<result[0]<<" "<<result[1]<<std::endl;
     return 1;
 }
+#endif
 
 VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
                          const int device_ordinal,
@@ -147,14 +148,6 @@ void* VsiExecutor::GetSubBuffer(se::DeviceMemoryBase* parent, uint64 offset,
 void VsiExecutor::Deallocate(se::DeviceMemoryBase* mem) {
   std::unique_lock<std::mutex> lock(mutex_);
   free(mem->opaque());
-  // auto t = static_cast<tim::vx::Tensor*>(mem->opaque());
-  // for(auto it = kVsiTensorContainer.begin(); it != kVsiTensorContainer.end();
-  // it++){
-  //     if(it->get() == t){
-  //         it = kVsiTensorContainer.erase(it);
-  //         break;
-  //     }
-  // }
 }
 
 void* VsiExecutor::HostMemoryAllocate(uint64 size) {

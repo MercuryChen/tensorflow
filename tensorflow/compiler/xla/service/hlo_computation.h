@@ -628,7 +628,7 @@ Status HloComputation::Accept(
     TF_RETURN_IF_ERROR(root->Accept(visitor, /*call_finish_visit=*/false));
   }
   // Visit the computation root instruction last.
-  LOG(INFO) << "HloComputation::Accept 0";
+  LOG(INFO) << "HloComputation::Accept 0: " << root_instruction()->ToShortString();
   return root_instruction()->Accept(visitor, /*call_finish_visit=*/true);
 }
 
