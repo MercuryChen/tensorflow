@@ -3319,8 +3319,42 @@ HloInstruction::HloInstruction(HloOpcode opcode, const Shape& shape)
   TF_DCHECK_OK(ShapeUtil::ValidateShapeWithOptionalLayout(shape_));
 }
 
+#if 0
+bool is_root_hlo(const HloInstruction* hlo, const HloInstruction* root) {
+  bool is_root = false;
+  std::vector<HloOpcode> except_list = {HloOpcode::kGetTupleElement,
+                                        HloOpcode::kTuple, HloOpcode::kCopy};
+  if (std::none_of(except_list.begin(), except_list.end(),
+                   [root](HloOpcode op) { return op == root->opcode(); })) {
+    return (root == hlo);
+  }
+
+  auto root1 = root;
+  if (root->opcode() == HloOpcode::kGetTupleElement) {
+    root1 = root->operand(0);
+  }
+  for (auto operand : root1->operands()) {
+    const HloInstruction* operand1 = operand;
+    while (operand1->opcode() == HloOpcode::kCopy) {
+      operand1 = operand1->operand(0);
+    }
+    if (operand1 == hlo) {
+      return true;
+    }
+  }
+  return is_root;
+}
+#endif
+
 template <typename HloInstructionPtr>
 Status HloInstruction::Visit(DfsHloVisitorBase<HloInstructionPtr>* visitor) {
+#if 0
+  auto root = this->parent()->root_instruction();
+  bool is_root = (root == this);
+  LOG(INFO) << "PROCESS GGG " << __FUNCTION__ << " is_root: " << is_root;
+  bool is_root1 = is_root_hlo(this, root);
+  LOG(INFO) << "PROCESS GGG " << __FUNCTION__ << " is_root1: " << is_root1;
+#endif
   switch (opcode_) {
     case HloOpcode::kAbs:
       return visitor->HandleAbs(this);
