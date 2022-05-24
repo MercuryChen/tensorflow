@@ -27,7 +27,7 @@ limitations under the License.
 #include "tim/vx/context.h"
 #include "tim/vx/graph.h"
 
-#define THRIFT_RPC 1
+#define THRIFT_RPC 0
 
 #if THRIFT_RPC
 #include "tim/vx/platform/remote.h"

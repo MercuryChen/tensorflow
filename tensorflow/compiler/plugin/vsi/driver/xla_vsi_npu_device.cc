@@ -120,18 +120,18 @@ static bool OpFilter(KernelDef* kdef) {
   // if (kdef->op() == "Mul") return true;
   // if (kdef->op() == "MatMul") return true;
   if (kdef->op() == "Conv2D") return true;
-  // if (kdef->op() == "Conv2DBackpropInput") return true;
-  // if (kdef->op() == "Conv2DBackpropFilter") return true;
-  // if (kdef->op() == "Relu") return true;
-  // if (kdef->op() == "ReluGrad") return true;
-  // if (kdef->op() == "BroadcastTo") return true;
-  // if (kdef->op() == "Sum") return true;
-  // if (kdef->op() == "Equal") return true;
-  // if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
+  if (kdef->op() == "Conv2DBackpropInput") return true;
+  if (kdef->op() == "Conv2DBackpropFilter") return true;
+  if (kdef->op() == "Relu") return true;
+  if (kdef->op() == "ReluGrad") return true;
+  if (kdef->op() == "BroadcastTo") return true;
+  if (kdef->op() == "Sum") return true;
+  if (kdef->op() == "Equal") return true;
+  if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
   // if (kdef->op() == "Pack") return true;
   // if (kdef->op() == "ConcatV2") return true;
-  // if (kdef->op() == "Reshape") return true;
-  // if (kdef->op() == "MaxPool") return true;
+  if (kdef->op() == "Reshape") return true;
+  if (kdef->op() == "MaxPool") return true;
   // if (kdef->op() == "MaxPoolGrad") return true;
 
   // if (kdef->op() == "XlaDot") return true;

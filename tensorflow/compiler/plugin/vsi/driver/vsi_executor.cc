@@ -34,6 +34,7 @@ using namespace apache::thrift::transport;
 using namespace apache::thrift::protocol;
 using namespace shared;
 
+#if 0
 int rpc_demo() {
    /***********************generate client****************************/
     // transport layer
@@ -92,6 +93,7 @@ int rpc_demo() {
     std::cerr<<"#####final result is "<<result[0]<<" "<<result[1]<<std::endl;
     return 1;
 }
+#endif
 #endif
 
 VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,

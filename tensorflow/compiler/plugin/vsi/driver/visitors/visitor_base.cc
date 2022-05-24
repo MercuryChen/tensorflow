@@ -35,8 +35,10 @@ limitations under the License.
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/stream_executor/lib/initialize.h"
+#include "tim/utils/nbg_parser/nbg_parser.h"
 #include "tim/vx/operation.h"
 #include "tim/vx/ops.h"
+
 using tensorflow::str_util::StartsWith;
 
 namespace xla {
@@ -204,6 +206,19 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
   computation.Accept(this);
 
   graph_->PrintGraph();
+
+#if 1
+  void* nbg_buf = nullptr;
+  size_t bin_size = -1;
+  LOG(INFO) << __FUNCTION__ << " YYY 1";
+  graph_->CompileToBinary(nbg_buf, &bin_size);
+  nbg_buf = malloc(bin_size);
+  LOG(INFO) << __FUNCTION__ << " YYY 2";
+  graph_->CompileToBinary(nbg_buf, &bin_size);
+  print_nbg_graph(nbg_buf, bin_size);
+  LOG(INFO) << __FUNCTION__ << " YYY 3";
+  free(nbg_buf);
+#endif
 
 #if THRIFT_RPC
   LOG(INFO) << __FUNCTION__ << " UUU 1";
@@ -1395,6 +1410,11 @@ Status BaseVisitor::HandleParameter(HloInstruction* hlo) {
 
 Status BaseVisitor::HandleConstant(HloInstruction* hlo) {
   LOG(INFO) << "PROCESS Constant";
+  if (hlo->user_count() == 0 && hlo->control_successors().empty() &&
+      hlo != hlo->parent()->root_instruction()) {
+    LOG(INFO) << "PROCESS Constant Unreachable GGG";
+    return Status::OK();
+  }
 
   if (kVsiRunTensorContainer_.find(hlo) == kVsiRunTensorContainer_.end()) {
     ShapeIndex shapeIndex({});
