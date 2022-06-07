@@ -4,7 +4,7 @@ https://www.jianshu.com/p/6beedc7f83da
 """
 
 import os
-input("pid: " + str(os.getpid()) +", press enter after attached")
+# input("pid: " + str(os.getpid()) +", press enter after attached")
 import numpy as np
 import tensorflow as tf
 # from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -18,6 +18,8 @@ tf.debugging.set_log_device_placement(True)
 
 MODEL_FILE = "lenet.json"
 MODEL_DATA_FILE = "lenet.h5"
+
+FULL_TEST=False
 
 def load_data():
   (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
@@ -33,16 +35,19 @@ def load_data():
 
 (x_train, y_train), (x_test, y_test) = load_data()
 
-BATCH_SIZE = 8
-TRAIN_SIZE = BATCH_SIZE
-EPOCHS = 2
+BATCH_SIZE = 16
 DUMP_DIR = "npu"
 
-x_train = x_train[0:TRAIN_SIZE, :, :, :]
-y_train = y_train[0:TRAIN_SIZE, :]
+if FULL_TEST:
+  EPOCHS = 13
+else:
+  TRAIN_SIZE = BATCH_SIZE
+  EPOCHS = 1
+  x_train = x_train[0:TRAIN_SIZE, :, :, :]
+  y_train = y_train[0:TRAIN_SIZE, :]
 
-x_test = x_test[0:1,:,:,:]
-y_test = y_test[0:1,:]
+  x_test = x_test[0:1,:,:,:]
+  y_test = y_test[0:1,:]
 
 def generate_model():
   return tf.keras.models.Sequential([
@@ -119,9 +124,13 @@ def get_weight_grad(model, inputs, outputs):
 train_model(model, x_train, y_train, x_test, y_test,
   epochs=EPOCHS, batch_size=BATCH_SIZE)
 model.summary()
+print("RRR 1")
 
-weight_grads = get_weight_grad(model, x_train, y_train)
-dump_tensors(weight_grads, "grads", model.trainable_weights)
+if not FULL_TEST:
+  weight_grads = get_weight_grad(model, x_train, y_train)
+  dump_tensors(weight_grads, "grads", model.trainable_weights)
+
+print("RRR 2")
 
 if not os.path.exists(MODEL_FILE):
   json_string = model.to_json()
@@ -138,6 +147,6 @@ model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
 # layer_outs = functor([x_train])
 # dump_tensors(layer_outs, "output", outputs)
 
-print(model.predict(x_test))
+print(model.predict(x_test, batch_size=BATCH_SIZE))
 
 print("RRR : job finish.")

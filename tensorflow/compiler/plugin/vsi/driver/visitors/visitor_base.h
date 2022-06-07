@@ -281,10 +281,15 @@ class BaseVisitor : public DfsHloVisitor {
   std::vector<Literal> arg_literals_;
   std::unordered_map<int64, uint32_t> kVsiInputId_ TF_GUARDED_BY(mutex_);
   std::shared_ptr<tim::vx::Graph> graph_;
+  bool is_graph_build_ = false;
 #if THRIFT_RPC
  public:
   std::shared_ptr<tim::vx::platform::IExecutable> remote_exectable_ = nullptr;
-  std::vector<std::shared_ptr<tim::vx::platform::ITensorHandle>> remote_outputs_;
+  std::vector<std::shared_ptr<tim::vx::platform::ITensorHandle>>
+      remote_outputs_;
+  std::map<std::shared_ptr<tim::vx::Tensor>,
+           std::shared_ptr<tim::vx::platform::ITensorHandle>>
+      remote_input_tensor_map_;
 #endif
 };
 

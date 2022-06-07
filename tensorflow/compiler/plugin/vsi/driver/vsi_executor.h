@@ -27,7 +27,7 @@ limitations under the License.
 #include "tim/vx/context.h"
 #include "tim/vx/graph.h"
 
-#define THRIFT_RPC 0
+#define THRIFT_RPC 1
 
 #if THRIFT_RPC
 #include "tim/vx/platform/remote.h"
@@ -239,8 +239,8 @@ class VsiExecutor : public se::internal::StreamExecutorInterface {
   // create client
   shared_ptr<shared::RemoteClientClient> client_;
 
-  std::shared_ptr<tim::vx::platform::IDevice> remote_device_;
-  std::shared_ptr<tim::vx::platform::IExecutor> remote_executor_;
+  std::shared_ptr<tim::vx::platform::RemoteDevice> remote_device_;
+  std::shared_ptr<tim::vx::platform::RemoteExecutor> remote_executor_;
 #endif
 };
 

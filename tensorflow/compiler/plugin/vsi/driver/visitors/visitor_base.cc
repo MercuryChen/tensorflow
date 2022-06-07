@@ -124,6 +124,7 @@ std::shared_ptr<tim::vx::Tensor> BaseVisitor::createTensorFromShape(
     }
     LOG(INFO) << __FUNCTION__ << " shape info 1: " << ss.str();
   }
+  LOG(INFO) << __FUNCTION__ << " element_type: " << shape.element_type();
   auto type = convertTfPrimitiveTypeToTim(shape.element_type());
   std::unique_lock<std::mutex> lock(mutex_);
   tim::vx::TensorSpec timSpec(type, timShape, attr, timQuant);
@@ -207,7 +208,7 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
 
   graph_->PrintGraph();
 
-#if 1
+#if 0
   void* nbg_buf = nullptr;
   size_t bin_size = -1;
   LOG(INFO) << __FUNCTION__ << " YYY 1";
@@ -221,8 +222,10 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
 #endif
 
 #if THRIFT_RPC
-  LOG(INFO) << __FUNCTION__ << " UUU 1";
-  remote_exectable_ = executor_->remote_executor_->Compile(graph_);
+  LOG(INFO) << __FUNCTION__ << " UUU 1: " << is_graph_build_;
+  if (!is_graph_build_) {
+    remote_exectable_ = executor_->remote_executor_->Compile(graph_);
+  }
   LOG(INFO) << __FUNCTION__ << " UUU 2";
 #else
   if (!graph_->Compile()) {
@@ -249,11 +252,21 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
 #if THRIFT_RPC
           LOG(INFO) << __FUNCTION__ << " UUU 3: count: " << count
                     << " id: " << input_id;
-          auto input_spec = input_tensor->GetSpec();
-          auto remote_input_tensor =
-              remote_exectable_->AllocateTensor(input_spec);
+          if (!is_graph_build_) {
+            auto input_spec = input_tensor->GetSpec();
+            LOG(INFO) << __FUNCTION__
+                    << " UUU 3A: " << (int)input_spec.datatype_;
+            auto remote_input_tensor =
+                remote_exectable_->AllocateTensor(input_spec);
+            remote_input_tensor_map_[input_tensor] = remote_input_tensor;
+          }
           LOG(INFO) << __FUNCTION__
-                    << " UUU 4: " << input_literal.size_bytes(shapeIndex);
+                    << " UUU 4: " << input_literal.size_bytes(shapeIndex) << " : " << input_literal.element_count(shapeIndex);
+          if (remote_input_tensor_map_.find(input_tensor) ==
+              remote_input_tensor_map_.end()) {
+            LOG(INFO) << __FUNCTION__ << " UUU 4A: input_tensor not found.";
+          }
+          auto remote_input_tensor = remote_input_tensor_map_[input_tensor];
           remote_input_tensor->CopyDataToTensor(
               buffer, input_literal.size_bytes(shapeIndex));
           remote_exectable_->SetInput(remote_input_tensor);
@@ -269,23 +282,27 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
   }
 
 #if THRIFT_RPC
-  auto output_tensors = graph_->OutputsTensor();
-  LOG(INFO) << __FUNCTION__
-            << " UUU 6 output_tensors.size: " << output_tensors.size();
-  remote_outputs_.clear();
-  int count = 0;
-  for (auto output_tensor : output_tensors) {
-    auto output_spec = output_tensor->GetSpec();
-    LOG(INFO) << __FUNCTION__ << " UUU 7: " << count;
-    auto remote_output_tensor = remote_exectable_->AllocateTensor(output_spec);
-    LOG(INFO) << __FUNCTION__ << " UUU 8: output_spec.GetByteSize: "
-              << output_spec.GetByteSize();
-    remote_output_tensor->CopyDataToTensor(nullptr, output_spec.GetByteSize());
-    remote_exectable_->SetOutput(remote_output_tensor);
-    LOG(INFO) << __FUNCTION__ << " UUU 9";
-    remote_outputs_.push_back(remote_output_tensor);
-    LOG(INFO) << __FUNCTION__ << " UUU 10";
-    count++;
+  if (!is_graph_build_) {
+    auto output_tensors = graph_->OutputsTensor();
+    LOG(INFO) << __FUNCTION__
+              << " UUU 6 output_tensors.size: " << output_tensors.size();
+    remote_outputs_.clear();
+    int count = 0;
+    for (auto output_tensor : output_tensors) {
+      auto output_spec = output_tensor->GetSpec();
+      LOG(INFO) << __FUNCTION__ << " UUU 7: " << count;
+      auto remote_output_tensor =
+          remote_exectable_->AllocateTensor(output_spec);
+      LOG(INFO) << __FUNCTION__ << " UUU 8: output_spec.GetByteSize: "
+                << output_spec.GetByteSize();
+      remote_output_tensor->CopyDataToTensor(nullptr,
+                                             output_spec.GetByteSize());
+      remote_exectable_->SetOutput(remote_output_tensor);
+      LOG(INFO) << __FUNCTION__ << " UUU 9";
+      remote_outputs_.push_back(remote_output_tensor);
+      LOG(INFO) << __FUNCTION__ << " UUU 10";
+      count++;
+    }
   }
 #endif
 
@@ -301,7 +318,7 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     return {};
   }
 #endif
-
+  is_graph_build_ = true;
   return GetEvaluatedTensorFor(computation.root_instruction());
 }
 

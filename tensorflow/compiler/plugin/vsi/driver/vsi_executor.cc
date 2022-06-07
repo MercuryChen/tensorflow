@@ -20,9 +20,9 @@ limitations under the License.
 #include "tensorflow/compiler/plugin/vsi/driver/vsi_utils.h"
 #include "tensorflow/stream_executor/host/host_stream.h"
 #include "tensorflow/stream_executor/host/host_timer.h"
-#include "tim/vx/tensor.h"
 #include "tim/vx/operation.h"
 #include "tim/vx/ops.h"
+#include "tim/vx/tensor.h"
 
 namespace xla {
 namespace vsiplugin {
@@ -108,8 +108,10 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
   socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
   transport_ = std::make_shared<TBufferedTransport>(socket_);
   protocol_ = std::make_shared<TBinaryProtocol>(transport_);
-  multiplexed_protocol_ = std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
-  client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_, multiplexed_protocol_);
+  multiplexed_protocol_ =
+      std::make_shared<TMultiplexedProtocol>(protocol_, serviceName);
+  client_ = std::make_shared<shared::RemoteClientClient>(multiplexed_protocol_,
+                                                         multiplexed_protocol_);
   transport_->open();
 
   int32_t device_handles = client_->Enumerate();
@@ -123,7 +125,11 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
 #endif
 }
 
-VsiExecutor::~VsiExecutor() { LOG(INFO) << __FUNCTION__ << " Not Implemented"; }
+VsiExecutor::~VsiExecutor() {
+  LOG(INFO) << __FUNCTION__ << " UUU X";
+  remote_executor_->Clear();
+  transport_->close();
+}
 
 // TODO: temprarily use 1d tensor
 se::DeviceMemoryBase VsiExecutor::Allocate(uint64 size, int64 memory_space) {
@@ -303,7 +309,9 @@ port::Status VsiExecutor::BlockHostUntilDone(se::Stream* stream) {
   AsVsiStream(stream)->BlockUntilDone();
   return port::Status::OK();
 }
-int VsiExecutor::PlatformDeviceCount() { LOG(FATAL) << __FUNCTION__ << " Not Implemented"; }
+int VsiExecutor::PlatformDeviceCount() {
+  LOG(FATAL) << __FUNCTION__ << " Not Implemented";
+}
 port::Status VsiExecutor::EnablePeerAccessTo(StreamExecutorInterface* other) {
   LOG(FATAL) << __FUNCTION__ << " Not Implemented";
   return port::Status::OK();
