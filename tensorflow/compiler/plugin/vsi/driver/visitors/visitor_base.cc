@@ -255,13 +255,14 @@ std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
           if (!is_graph_build_) {
             auto input_spec = input_tensor->GetSpec();
             LOG(INFO) << __FUNCTION__
-                    << " UUU 3A: " << (int)input_spec.datatype_;
+                      << " UUU 3A: " << (int)input_spec.datatype_;
             auto remote_input_tensor =
                 remote_exectable_->AllocateTensor(input_spec);
             remote_input_tensor_map_[input_tensor] = remote_input_tensor;
           }
           LOG(INFO) << __FUNCTION__
-                    << " UUU 4: " << input_literal.size_bytes(shapeIndex) << " : " << input_literal.element_count(shapeIndex);
+                    << " UUU 4: " << input_literal.size_bytes(shapeIndex)
+                    << " : " << input_literal.element_count(shapeIndex);
           if (remote_input_tensor_map_.find(input_tensor) ==
               remote_input_tensor_map_.end()) {
             LOG(INFO) << __FUNCTION__ << " UUU 4A: input_tensor not found.";

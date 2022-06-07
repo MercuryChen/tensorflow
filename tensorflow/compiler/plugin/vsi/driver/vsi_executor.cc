@@ -127,8 +127,10 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
 
 VsiExecutor::~VsiExecutor() {
   LOG(INFO) << __FUNCTION__ << " UUU X";
+#if THRIFT_RPC
   remote_executor_->Clear();
   transport_->close();
+#endif
 }
 
 // TODO: temprarily use 1d tensor
