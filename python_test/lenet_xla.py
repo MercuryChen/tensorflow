@@ -36,13 +36,13 @@ def load_data():
 (x_train, y_train), (x_test, y_test) = load_data()
 
 BATCH_SIZE = 16
-DUMP_DIR = "npu"
+DUMP_DIR = "cpu"
 
 if FULL_TEST:
   EPOCHS = 13
 else:
-  TRAIN_SIZE = BATCH_SIZE
   EPOCHS = 1
+  TRAIN_SIZE = BATCH_SIZE
   x_train = x_train[0:TRAIN_SIZE, :, :, :]
   y_train = y_train[0:TRAIN_SIZE, :]
 
@@ -90,6 +90,7 @@ else:
   model = generate_model()
 
 model = compile_model(model)
+model.summary()
 
 def dump_tensors(tensors, prefix, tensors_name=None):
   if not os.path.isdir(DUMP_DIR): os.makedirs(DUMP_DIR)
@@ -120,17 +121,25 @@ def get_weight_grad(model, inputs, outputs):
   grad = tape.gradient(loss, model.trainable_weights)
   return grad
 
-#warmup(model, x_train, y_train, x_test, y_test)
-train_model(model, x_train, y_train, x_test, y_test,
-  epochs=EPOCHS, batch_size=BATCH_SIZE)
-model.summary()
-print("RRR 1")
+# warmup(model, x_train, y_train, x_test, y_test)
+# train_model(model, x_train, y_train, x_test, y_test,
+#   epochs=EPOCHS, batch_size=BATCH_SIZE)
+# print("RRR 1")
 
-if not FULL_TEST:
+if FULL_TEST:
+  for i in range(EPOCHS):
+    print("Epoch X: {}/{}".format(i + 1, EPOCHS))
+    train_model(model, x_train, y_train, x_test, y_test,
+      epochs=1, batch_size=BATCH_SIZE)
+    dump_tensors(weights, "after/{}/".format(i + 1))
+    model.save_weights(DUMP_DIR + "/after/{}/".format(i + 1) + MODEL_DATA_FILE)
+else:
+  train_model(model, x_train, y_train, x_test, y_test,
+  epochs=1, batch_size=BATCH_SIZE)
   weight_grads = get_weight_grad(model, x_train, y_train)
   dump_tensors(weight_grads, "grads", model.trainable_weights)
-
-print("RRR 2")
+  dump_tensors(weights, "after")
+  model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
 
 if not os.path.exists(MODEL_FILE):
   json_string = model.to_json()
@@ -138,15 +147,12 @@ if not os.path.exists(MODEL_FILE):
   model.save_weights(MODEL_DATA_FILE)
   print("RRR : save model.")
 
-dump_tensors(weights, "after")
-model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
-
 # outputs = [layer.output for layer in model.layers][1:]
 # # all layer outputs except first (input) layer
 # functor = tf.keras.backend.function([model.input], outputs)
 # layer_outs = functor([x_train])
 # dump_tensors(layer_outs, "output", outputs)
 
-print(model.predict(x_test, batch_size=BATCH_SIZE))
+# print(model.predict(x_test, batch_size=BATCH_SIZE))
 
 print("RRR : job finish.")
