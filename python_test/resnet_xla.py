@@ -1,5 +1,5 @@
 import os
-input("pid: " + str(os.getpid()) +", press enter after attached")
+# input("pid: " + str(os.getpid()) +", press enter after attached")
 import numpy as np
 import tensorflow as tf
 print("tf verison: " + tf.__version__)
@@ -11,11 +11,10 @@ tf.debugging.set_log_device_placement(True)
 MODEL_FILE = "resnet.json"
 MODEL_DATA_FILE = "resnet.h5"
 
-BATCH_SIZE = 2
-TRAIN_SIZE = BATCH_SIZE
-EPOCHS = 1
 DUMP_DIR = "npu"
-MODEL_NAME = "tiny_v1_for_full_size"
+MODEL_NAME = "tiny_v1_for_cifar"
+
+FULL_TEST=True
 
 def load_cifar_data():
   (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
@@ -144,7 +143,7 @@ def generate_v2_model():
   return model
 
 def compile_model(model):
-  opt = tf.keras.optimizers.SGD(lr=0.0001)
+  opt = tf.keras.optimizers.SGD(learning_rate=0.0001)
   # opt = tf.keras.optimizers.RMSprop(lr=0.0001, decay=1e-6)
   model.compile(loss='categorical_crossentropy',
                 optimizer=opt,
@@ -192,15 +191,23 @@ model_list = [
 ]
 
 model_info = get_model(model_list, MODEL_NAME)
-print (model_info)
+print(model_info)
+
+BATCH_SIZE = 2
+if FULL_TEST:
+  EPOCHS = 100
+else:
+  EPOCHS = 1
+  TRAIN_SIZE = BATCH_SIZE
 
 (x_train, y_train), (x_test, y_test) = eval(model_info['data_set'])
 
-x_train = x_train[0:TRAIN_SIZE, :, :, :]
-y_train = y_train[0:TRAIN_SIZE, :]
+if not FULL_TEST:
+  x_train = x_train[0:TRAIN_SIZE, :, :, :]
+  y_train = y_train[0:TRAIN_SIZE, :]
 
-x_test = x_test[0:1,:,:,:]
-y_test = y_test[0:1,:]
+  x_test = x_test[0:1,:,:,:]
+  y_test = y_test[0:1,:]
 
 if os.path.exists(MODEL_FILE):
   json_string = open(MODEL_FILE, 'r').read() 
@@ -210,6 +217,7 @@ else:
   model = eval(model_info['model'])
 
 model = compile_model(model)
+model.summary()
 
 def dump_tensors(tensors, prefix, tensors_name=None):
   if not os.path.isdir(DUMP_DIR): os.makedirs(DUMP_DIR)
@@ -240,22 +248,31 @@ def get_weight_grad(model, inputs, outputs):
   grad = tape.gradient(loss, model.trainable_weights)
   return grad
 
-#warmup(model, x_train, y_train, x_test, y_test)
-train_model(model, x_train, y_train, x_test, y_test,
-  epochs=EPOCHS, batch_size=BATCH_SIZE)
-model.summary()
+# warmup(model, x_train, y_train, x_test, y_test)
+# train_model(model, x_train, y_train, x_test, y_test,
+#   epochs=EPOCHS, batch_size=BATCH_SIZE)
+# print("RRR 1")
 
-weight_grads = get_weight_grad(model, x_train, y_train)
-dump_tensors(weight_grads, "grads", model.trainable_weights)
+if FULL_TEST:
+  for i in range(EPOCHS):
+    print("Epoch X: {}/{}".format(i + 1, EPOCHS))
+    train_model(model, x_train, y_train, x_test, y_test,
+      epochs=1, batch_size=BATCH_SIZE)
+    dump_tensors(weights, "after/{}/".format(i + 1))
+    model.save_weights(DUMP_DIR + "/after/{}/".format(i + 1) + MODEL_DATA_FILE)
+else:
+  train_model(model, x_train, y_train, x_test, y_test,
+  epochs=1, batch_size=BATCH_SIZE)
+  weight_grads = get_weight_grad(model, x_train, y_train)
+  dump_tensors(weight_grads, "grads", model.trainable_weights)
+  dump_tensors(weights, "after")
+  model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
 
 if not os.path.exists(MODEL_FILE):
   json_string = model.to_json()
   open(MODEL_FILE, 'w').write(json_string) 
   model.save_weights(MODEL_DATA_FILE)
   print("RRR : save model.")
-
-dump_tensors(weights, "after")
-model.save_weights(DUMP_DIR + "/after/" + MODEL_DATA_FILE)
 
 # outputs = [layer.output for layer in model.layers][1:]
 # # all layer outputs except first (input) layer
