@@ -46,6 +46,7 @@ namespace vsiplugin {
 
 bool is_root_hlo(const HloInstruction* hlo) {
   bool is_root = false;
+#if 1
   const HloInstruction* root = hlo->parent()->root_instruction();
   std::vector<HloOpcode> except_list = {HloOpcode::kGetTupleElement,
                                         HloOpcode::kTuple, HloOpcode::kCopy};
@@ -67,6 +68,7 @@ bool is_root_hlo(const HloInstruction* hlo) {
       return true;
     }
   }
+#endif
   return is_root;
 }
 
@@ -117,6 +119,7 @@ std::shared_ptr<tim::vx::Tensor> BaseVisitor::createTensorFromShape(
   if (timShape.size() == 0) {
     timShape.push_back(1);
   }
+
   {
     std::ostringstream ss;
     for (int i = 0; i < timShape.size(); i++) {
@@ -1258,12 +1261,40 @@ Status BaseVisitor::HandleReshape(HloInstruction* hlo) {
   auto shape = hlo->shape();
   const HloInstruction* input = hlo->operand(0);
   auto in_tensor = GetEvaluatedTensorFor(input)[0];
+  std::vector<uint32_t> dims;
+  // std::vector<uint32_t> dims =
+  //     convert_array<std::vector<uint32_t>>(shape.dimensions());
+  LOG(INFO) << __FUNCTION__ << " CCC: " << shape.dimensions().size();
+
+  // {
+  //   std::ostringstream ss;
+  //   auto minor_to_major = shape.layout().minor_to_major();
+  //   for (int i = 0; i < minor_to_major.size(); i++) {
+  //     ss << minor_to_major[i] << " ";
+  //   }
+  //   LOG(INFO) << __FUNCTION__ << " input_minor_to_major: " << ss.str();
+  // }
+
+  // {
+  //   std::ostringstream ss;
+  //   for (int i = 0; i < dims.size(); i++) {
+  //     ss << dims[i] << " ";
+  //   }
+  //   LOG(INFO) << __FUNCTION__ << " CCC dims0: " << ss.str();
+  // }
+
+  for (auto d : shape.layout().minor_to_major()) {
+    dims.push_back(shape.dimensions(d));
+  }
+
+  if (dims.size() == 0) {
+    dims.push_back(1);
+  }
+
   auto out_tensor = createTensorFromShape(
       shape, is_root_hlo(hlo) ? tim::vx::TensorAttribute::OUTPUT
                               : tim::vx::TensorAttribute::TRANSIENT);
 
-  std::vector<uint32_t> dims =
-      convert_array<std::vector<uint32_t>>(shape.dimensions());
   auto reshapeOp = graph_->CreateOperation<tim::vx::ops::Reshape>(dims);
   reshapeOp->BindInput(in_tensor).BindOutput(out_tensor);
 
