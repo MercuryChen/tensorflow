@@ -66,10 +66,8 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
   // TransferManager methods below.
   std::vector<ShapedBuffer> argument_buffers;
   argument_buffers.reserve(arguments.size());
-  int device_ordinal = run_options->device_ordinal();
-  if (device_ordinal < 0) {
-    device_ordinal = 0;
-  }
+  int device_ordinal = executor->device_ordinal();
+
   for (auto& argument : arguments) {
     const ShapeTree<MaybeOwningDeviceMemory>& buffers = argument.Buffers();
     argument_buffers.push_back(ShapedBuffer(buffers.shape(),
@@ -106,7 +104,9 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
     arg_literals.push_back(std::move(arg_literal));
   }
   LOG(INFO) << "computation->num_parameters: " << computation->num_parameters();
+
   auto tensor = visitor_->evaluate(*computation, arg_literals);
+
 
   // Transform the result literal back into a ShapedBuffer.
   auto root_instr = computation->root_instruction();

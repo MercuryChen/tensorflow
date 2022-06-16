@@ -69,7 +69,7 @@ static bool OpFilter(KernelDef* kdef) {
   if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
   // if (kdef->op() == "Pack") return true;
   // if (kdef->op() == "ConcatV2") return true;
-  if (kdef->op() == "Reshape") return true;
+  // if (kdef->op() == "Reshape") return true;
   if (kdef->op() == "MaxPool") return true;
   // if (kdef->op() == "MaxPoolGrad") return true;
 
@@ -170,6 +170,7 @@ class XlaVsiNpuDeviceFactory : public DeviceFactory {
   virtual Status ListPhysicalDevices(std::vector<string>* devices) override {
     //devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":0"));
     devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":0"));
+    devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":1"));
     return Status::OK();
   }
 };
@@ -200,23 +201,39 @@ Status XlaVsiNpuDeviceFactory::CreateDevices(
   if (!platform.ok()) {
     return platform.status();
   }
+  std::set<int> tmp;
+  tmp.insert(0);
+  tmp.insert(1);
+  absl::optional<std::set<int>> vsi_npu_ids({tmp});
+  for(int i = 0;i<2;i++){
+    vsi_npu_ids->insert(i);
+  }
 
   auto* p = static_cast<xla::vsiplugin::VsiPlatform*>(platform.ValueOrDie());
 
-  XlaDevice::Options devopts;
-  devopts.platform = platform.ValueOrDie();
-  devopts.device_name_prefix = name_prefix;
-  devopts.compilation_device_name = DEVICE_VSI_NPU_XLA_JIT;
-  devopts.device_name = DEVICE_XLA_VSI_NPU;
+  for(int i: *vsi_npu_ids){
+    XlaDevice::Options devopts;
+    devopts.platform = platform.ValueOrDie();
+    devopts.device_name_prefix = name_prefix;
+    devopts.device_name = DEVICE_XLA_VSI_NPU;
+    devopts.compilation_device_name = DEVICE_VSI_NPU_XLA_JIT;
+    //devopts.use_multiple_streams = true;
+    devopts.allowed_devices = vsi_npu_ids;
+    devopts.device_ordinal = i;
+    auto device = absl::make_unique<XlaDevice>(options, devopts);
 
-  int num_devices = p->VisibleDeviceCount();
-
-  for (int ordinal = 0; ordinal < num_devices; ordinal++) {
-    devopts.device_ordinal = ordinal;
-
-    std::unique_ptr<Device> dev(new VsiNpuDevice(options, devopts));
-    devices->push_back(std::move(dev));
+    Status status = device->UseGpuDeviceInfo();
+    if(!status.ok()){
+      assert(true);
+    }
+    devices->push_back(std::move(device));
   }
+
+  //int num_devices = p->VisibleDeviceCount();
+
+  // for (int ordinal = 0; ordinal < num_devices; ordinal++) {
+  //   devopts.device_ordinal = ordinal;
+  // }
 
   return Status::OK();
 }

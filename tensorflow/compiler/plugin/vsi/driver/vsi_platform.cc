@@ -42,7 +42,7 @@ VsiPlatform::~VsiPlatform() {}
 
 se::Platform::Id VsiPlatform::id() const { return id_; }
 
-int VsiPlatform::VisibleDeviceCount() const { return 1; }
+int VsiPlatform::VisibleDeviceCount() const { return 2; }
 
 const std::string& VsiPlatform::Name() const { return name_; }
 

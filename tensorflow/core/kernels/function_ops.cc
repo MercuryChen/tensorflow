@@ -403,4 +403,6 @@ REGISTER_KERNEL_BUILDER(
     Name("RemoteCall").Device(DEVICE_CPU).HostMemory("target"), RemoteCallOp);
 REGISTER_KERNEL_BUILDER(
     Name("RemoteCall").Device(DEVICE_GPU).HostMemory("target"), RemoteCallOp);
+REGISTER_KERNEL_BUILDER(
+    Name("RemoteCall").Device(DEVICE_NPU).HostMemory("target"), RemoteCallOp);
 }  // namespace tensorflow

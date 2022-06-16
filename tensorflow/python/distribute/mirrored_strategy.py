@@ -141,6 +141,8 @@ def _group_device_list(devices):
 def _is_gpu_device(device):
   return tf_device.DeviceSpec.from_string(device).device_type == "GPU"
 
+def _is_npu_device(device):
+  return True
 
 def _infer_num_gpus_per_worker(devices):
   """Infers the number of GPUs on each worker.
@@ -159,34 +161,41 @@ def _infer_num_gpus_per_worker(devices):
     ValueError if workers have different number of GPUs or GPU indices are not
     consecutive and starting from 0.
   """
-  if _is_device_list_single_worker(devices):
-    return sum(1 for d in devices if _is_gpu_device(d))
-  else:
-    device_dict = _group_device_list(devices)
-    num_gpus = None
-    for _, devices_in_task in device_dict.items():
-      for device_in_task in devices_in_task:
-        if num_gpus is None:
-          num_gpus = sum(1 for d in device_in_task if _is_gpu_device(d))
+  return 2
 
-        # Verify other workers have the same number of GPUs.
-        elif num_gpus != sum(1 for d in device_in_task if _is_gpu_device(d)):
-          raise ValueError("All workers should have the same number of GPUs.")
+def all_local_devices(num_npus=None):
+  devices = config.list_logical_devices("NPU")
+  if num_npus is not None:
+    devices = devices[:num_npus]
+  return devices
+  # if _is_device_list_single_worker(devices):
+  #   return sum(1 for d in devices if _is_gpu_device(d))
+  # else:
+  #   device_dict = _group_device_list(devices)
+  #   num_gpus = None
+  #   for _, devices_in_task in device_dict.items():
+  #     for device_in_task in devices_in_task:
+  #       if num_gpus is None:
+  #         num_gpus = sum(1 for d in device_in_task if _is_gpu_device(d))
 
-        for d in device_in_task:
-          d_spec = tf_device.DeviceSpec.from_string(d)
-          if (d_spec.device_type == "GPU" and
-              d_spec.device_index >= num_gpus):
-            raise ValueError("GPU `device_index` on a worker should be "
-                             "consecutive and start from 0.")
-    return num_gpus
+  #       # Verify other workers have the same number of GPUs.
+  #       elif num_gpus != sum(1 for d in device_in_task if _is_gpu_device(d)):
+  #         raise ValueError("All workers should have the same number of GPUs.")
+
+  #       for d in device_in_task:
+  #         d_spec = tf_device.DeviceSpec.from_string(d)
+  #         if (d_spec.device_type == "GPU" and
+  #             d_spec.device_index >= num_gpus):
+  #           raise ValueError("GPU `device_index` on a worker should be "
+  #                            "consecutive and start from 0.")
+  #   return num_gpus
 
 
-def all_local_devices(num_gpus=None):
-  devices = config.list_logical_devices("GPU")
-  if num_gpus is not None:
-    devices = devices[:num_gpus]
-  return devices or config.list_logical_devices("CPU")
+# def all_local_devices(num_gpus=None):
+#   devices = config.list_logical_devices("GPU")
+#   if num_gpus is not None:
+#     devices = devices[:num_gpus]
+#   return devices or config.list_logical_devices("CPU")
 
 
 def all_devices():
@@ -318,21 +327,21 @@ class MirroredExtended(distribute_lib.StrategyExtendedV1):
 
   def __init__(self, container_strategy, devices=None, cross_device_ops=None):
     super(MirroredExtended, self).__init__(container_strategy)
-    if context.executing_eagerly():
-      if devices and not _is_device_list_single_worker(devices):
-        raise RuntimeError("In-graph multi-worker training with "
-                           "`MirroredStrategy` is not supported in eager mode.")
-      else:
-        if TFConfigClusterResolver().cluster_spec().as_dict():
-          # if you are executing in eager mode, only the single machine code
-          # path is supported.
-          logging.info("Initializing local devices since in-graph multi-worker "
-                       "training with `MirroredStrategy` is not supported in "
-                       "eager mode. TF_CONFIG will be ignored when "
-                       "when initializing `MirroredStrategy`.")
-        devices = devices or all_local_devices()
-    else:
-      devices = devices or all_devices()
+    # if context.executing_eagerly():
+    #   if devices and not _is_device_list_single_worker(devices):
+    #     raise RuntimeError("In-graph multi-worker training with "
+    #                        "`MirroredStrategy` is not supported in eager mode.")
+    #   else:
+    #     if TFConfigClusterResolver().cluster_spec().as_dict():
+    #       # if you are executing in eager mode, only the single machine code
+    #       # path is supported.
+    #       logging.info("Initializing local devices since in-graph multi-worker "
+    #                    "training with `MirroredStrategy` is not supported in "
+    #                    "eager mode. TF_CONFIG will be ignored when "
+    #                    "when initializing `MirroredStrategy`.")
+    #     devices = devices or all_local_devices()
+    # else:
+    devices = devices or all_local_devices()
 
     assert devices, ("Got an empty `devices` list and unable to recognize "
                      "any local devices.")

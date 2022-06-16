@@ -530,7 +530,7 @@ class Context(object):
         logical_devices.append(
             LogicalDevice(name=spec.to_string(), device_type=spec.device_type))
         dev_type = pywrap_tfe.TF_DeviceListType(device_list, i)
-        if (dev_type == "GPU" and spec.job == current_job and
+        if (dev_type == "NPU" and spec.job == current_job and
             spec.task == current_task):
           self._num_gpus += 1
 
@@ -1087,6 +1087,7 @@ class Context(object):
     # Compute device counts
     config.device_count["CPU"] = 0
     config.device_count["GPU"] = 0
+    config.device_count["NPU"] = 0
     for dev in self._physical_devices:
       if dev not in self._visible_device_list:
         continue
@@ -1130,7 +1131,7 @@ class Context(object):
     virtual_devices = []
     gpu_index = -1
     memory_growths = set()
-    for dev in self.list_physical_devices("GPU"):
+    for dev in self.list_physical_devices("NPU"):
       gpu_index += 1
 
       if dev not in self._visible_device_list:
@@ -1359,7 +1360,7 @@ class Context(object):
 
       self._visible_device_list = list(self._physical_devices)
       self._memory_growth_map = {
-          d: None for d in self._physical_devices if d.device_type == "GPU"
+          d: None for d in self._physical_devices if d.device_type == "NPU"
       }
 
     # Import device settings that may have been passed into the constructor
@@ -1443,14 +1444,14 @@ class Context(object):
             cpus[0], [LogicalDeviceConfiguration() for _ in range(num_cpus)])
 
     # Parse GPU options
-    gpus = [d for d in self._physical_devices if d.device_type == "GPU"]
+    gpus = [d for d in self._physical_devices if d.device_type == "NPU"]
 
     # If there are no GPUs detected, simply ignore all the GPU options passed in
     # rather than doing any validation checks.
     if not gpus:
       return
 
-    gpu_count = self._config.device_count.get("GPU", None)
+    gpu_count = self._config.device_count.get("NPU", None)
 
     visible_gpus = []
     # TODO(gjn): Handle importing existing virtual GPU configuration
@@ -1466,7 +1467,7 @@ class Context(object):
     if gpu_count is not None:
       visible_gpus = visible_gpus[:gpu_count]
 
-    self.set_visible_devices(visible_gpus, "GPU")
+    self.set_visible_devices(visible_gpus, "NPU")
 
   def list_logical_devices(self, device_type=None):
     """Return logical devices."""
@@ -1549,7 +1550,7 @@ class Context(object):
       raise ValueError(
           "Cannot set memory growth on device when virtual devices configured")
 
-    if dev.device_type != "GPU":
+    if dev.device_type != "NPU":
       raise ValueError("Cannot set memory growth on non-GPU devices")
 
     if self._memory_growth_map.get(dev) == enable:
@@ -1585,7 +1586,7 @@ class Context(object):
         if vdev.experimental_priority is not None:
           raise ValueError("Setting experimental_priority on CPU virtual "
                            " devices is currently not supported")
-    elif dev.device_type == "GPU":
+    elif dev.device_type == "NPU":
       for vdev in virtual_devices:
         if vdev.memory_limit is None:
           raise ValueError(
@@ -1638,9 +1639,9 @@ class Context(object):
                                        stage, device_name, args)
 
   @deprecated(
-      None, "XLA:CPU and XLA:GPU devices are deprecated", warn_once=True)
+      None, "XLA:CPU and XLA:NPU devices are deprecated", warn_once=True)
   def enable_xla_devices(self):
-    """Enables XLA:CPU and XLA:GPU devices registration."""
+    """Enables XLA:CPU and XLA:NPU devices registration."""
     pywrap_tfe.TF_EnableXlaDevices()
 
   @property

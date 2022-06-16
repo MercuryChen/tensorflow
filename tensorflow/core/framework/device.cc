@@ -58,6 +58,9 @@ DeviceAttributes Device::BuildDeviceAttributes(
 
 bool Device::IsRemoteCallAllowed() const {
   auto& type = parsed_name_.type;
+  if (type == "NPU") {
+    return true;
+  }
   if (type == "TPU") {
     return true;
   }

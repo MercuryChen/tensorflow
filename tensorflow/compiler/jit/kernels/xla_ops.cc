@@ -588,6 +588,12 @@ REGISTER_KERNEL_BUILDER(Name("XlaLaunch")
                             .HostMemory("resources"),
                         XlaLocalLaunchOp);
 
+REGISTER_KERNEL_BUILDER(Name("XlaLaunch")
+                            .Device(DEVICE_NPU)
+                            .HostMemory("constants")
+                            .HostMemory("resources"),
+                        XlaLocalLaunchOp);
+
 REGISTER_KERNEL_BUILDER(Name("_XlaCompile").Device(DEVICE_CPU), XlaCompileOp);
 REGISTER_KERNEL_BUILDER(Name("_XlaCompile")
                             .Device(DEVICE_GPU)
@@ -597,11 +603,24 @@ REGISTER_KERNEL_BUILDER(Name("_XlaCompile")
                             .HostMemory("resources"),
                         XlaCompileOp);
 
+
+REGISTER_KERNEL_BUILDER(Name("XlaLaunch")
+
+                            .Device(DEVICE_NPU)
+
+                            .HostMemory("constants")
+
+                            .HostMemory("resources"),
+
+                        XlaLocalLaunchOp);
+
 REGISTER_KERNEL_BUILDER(Name("_XlaRun").Device(DEVICE_CPU), XlaRunOp);
 REGISTER_KERNEL_BUILDER(Name("_XlaRun").Device(DEVICE_GPU).HostMemory("key"),
                         XlaRunOp);
-
+REGISTER_KERNEL_BUILDER(Name("_XlaRun").Device(DEVICE_NPU).HostMemory("key"),
+                        XlaRunOp);
 REGISTER_KERNEL_BUILDER(Name("_XlaMerge").Device(DEVICE_CPU), XlaMergeOp);
 REGISTER_KERNEL_BUILDER(Name("_XlaMerge").Device(DEVICE_GPU), XlaMergeOp);
-
+REGISTER_KERNEL_BUILDER(Name("_XlaRun").Device(DEVICE_NPU).HostMemory("key"),
+                        XlaRunOp);
 }  // namespace tensorflow

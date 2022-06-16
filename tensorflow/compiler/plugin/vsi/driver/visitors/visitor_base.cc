@@ -201,6 +201,7 @@ tim::vx::DataType BaseVisitor::convertTfPrimitiveTypeToTim(
   }
 }
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 std::vector<std::shared_ptr<tim::vx::Tensor>> BaseVisitor::evaluate(
     const HloComputation& computation,
     std::vector<Literal>& argument_literals) {
