@@ -103,7 +103,7 @@ class AssignAddVariableOp : public XlaOpKernel {
   }
 };
 REGISTER_XLA_OP(
-    Name("AssignAddVariableOp").TypeConstraint("dtype", kNumericTypes),
+    Name("AssignAddVariableOp").TypeConstraint("dtype", kNumericTypes).AllowInt64Type(),
     AssignAddVariableOp);
 
 class AssignSubVariableOp : public XlaOpKernel {

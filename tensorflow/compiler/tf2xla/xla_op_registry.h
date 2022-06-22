@@ -264,6 +264,8 @@ class XlaOpRegistry {
     // to allow DT_STRING.
     bool allow_string_type = false;
 
+    bool allow_int64_type = false;
+
     // Mapping from attribute name to a list of supported types.
     std::unordered_map<string, std::set<DataType>> type_constraints;
 
@@ -352,6 +354,8 @@ class XlaOpRegistrationBuilder {
 
   // Allow DT_STRING type for type parameters.
   XlaOpRegistrationBuilder& AllowStringType();
+
+  XlaOpRegistrationBuilder& AllowInt64Type();
 
   // Mark 'input_name' as an argument whose value must be known at compile-time.
   XlaOpRegistrationBuilder& CompileTimeConstantInput(

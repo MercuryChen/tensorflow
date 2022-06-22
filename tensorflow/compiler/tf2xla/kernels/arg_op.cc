@@ -113,7 +113,7 @@ class XlaArgOp : public XlaOpKernel {
 };
 
 REGISTER_XLA_OP(
-    Name("_Arg").AllowResourceTypes().AllowVariantTypes().CompilationOnly(),
+    Name("_Arg").AllowResourceTypes().AllowVariantTypes().AllowInt64Type().CompilationOnly(),
     XlaArgOp);
 
 }  // namespace tensorflow

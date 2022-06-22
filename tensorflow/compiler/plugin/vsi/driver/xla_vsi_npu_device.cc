@@ -32,71 +32,10 @@ const char* const DEVICE_VSI_NPU_XLA_JIT = "XLA_NPU_JIT";
 const char* const PLATFORM_NAME = "vsi-npu";
 
 std::vector<DataType> GetVsiNpuSupportedTypes() {
-  // Supress the unused warning.
-  (void)GetVsiNpuSupportedTypes;
-
-  // Lambda which will get all the supported types given the flags.
-  auto get_types = [] {
-    // std::vector<DataType> supported = {DT_INT32, DT_INT64, DT_DOUBLE, DT_FLOAT, DT_HALF,
-    //                                    DT_BOOL};
-  std::vector<DataType> supported = {
+  return {
     DT_UINT8, DT_QUINT8, DT_UINT16, DT_INT8, DT_QINT8, DT_INT16, DT_INT32,
-    DT_QINT32, DT_INT64, DT_HALF, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
+    DT_QINT32, DT_HALF, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
     DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
-  //   std::vector<DataType> supported = {
-  //       DT_INVALID ,
-  // DT_FLOAT,
-  // DT_DOUBLE,
-  // DT_INT32,
-  // DT_UINT8,
-  // DT_INT16,
-  // DT_INT8,
-  // DT_STRING,
-  // DT_COMPLEX64,
-  // DT_INT64,
-  // DT_BOOL,
-  // DT_QINT8,
-  // DT_QUINT8,
-  // DT_QINT32,
-  // DT_BFLOAT16,
-  // DT_QINT16,
-  // DT_QUINT16,
-  // DT_UINT16,
-  // DT_COMPLEX128,
-  // DT_HALF,
-  // DT_RESOURCE,
-  // DT_VARIANT,
-  // DT_UINT32,
-  // DT_UINT64,
-  // DT_FLOAT_REF,
-  // DT_DOUBLE_REF,
-  // DT_INT32_REF,
-  // DT_UINT8_REF,
-  // DT_INT16_REF,
-  // DT_INT8_REF,
-  // DT_STRING_REF,
-  // DT_COMPLEX64_REF,
-  // DT_INT64_REF,
-  // DT_BOOL_REF,
-  // DT_QINT8_REF,
-  // DT_QUINT8_REF,
-  // DT_QINT32_REF,
-  // DT_BFLOAT16_REF,
-  // DT_QINT16_REF,
-  // DT_QUINT16_REF,
-  // DT_UINT16_REF,
-  // DT_COMPLEX128_REF,
-  // DT_HALF_REF,
-  // DT_RESOURCE_REF,
-  // DT_VARIANT_REF,
-  // DT_UINT32_REF,
-  // DT_UINT64_REF,
-  //   };
-    return supported;
-  };
-
-  static std::vector<DataType> supported_types = get_types();
-  return supported_types;
 };
 
 static bool OpFilter(KernelDef* kdef) {
@@ -126,7 +65,7 @@ static bool OpFilter(KernelDef* kdef) {
   if (kdef->op() == "ReluGrad") return true;
   if (kdef->op() == "BroadcastTo") return true;
   if (kdef->op() == "Sum") return true;
-  // if (kdef->op() == "Equal") return true;
+  if (kdef->op() == "Equal") return true;
   if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
   // if (kdef->op() == "Pack") return true;
   // if (kdef->op() == "ConcatV2") return true;

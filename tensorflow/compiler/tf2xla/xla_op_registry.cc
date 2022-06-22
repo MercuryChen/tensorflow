@@ -310,6 +310,9 @@ void XlaOpRegistry::RegisterCompilationKernels() {
           if (op_registration->allow_variant_types) {
             allowed_values->add_type(DT_VARIANT);
           }
+          if (op_registration->allow_int64_type) {
+            allowed_values->add_type(DT_INT64);
+          }
           if (op_registration->allow_string_type) {
             allowed_values->add_type(DT_STRING);
           }
@@ -522,6 +525,11 @@ XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowVariantTypes() {
 
 XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowStringType() {
   registration_->allow_string_type = true;
+  return *this;
+}
+
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowInt64Type() {
+  registration_->allow_int64_type = true;
   return *this;
 }
 

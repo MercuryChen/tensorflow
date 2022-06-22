@@ -66,7 +66,7 @@ class RetvalOp : public XlaOpKernel {
 };
 
 REGISTER_XLA_OP(
-    Name("_Retval").AllowResourceTypes().AllowVariantTypes().CompilationOnly(),
+    Name("_Retval").AllowResourceTypes().AllowVariantTypes().AllowInt64Type().CompilationOnly(),
     RetvalOp);
 
 }  // anonymous namespace
