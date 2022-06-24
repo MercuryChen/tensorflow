@@ -38,6 +38,13 @@ std::vector<DataType> GetVsiNpuSupportedTypes() {
     DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
 };
 
+std::vector<DataType> GetVsiNpuSupportedTypesWithInt64() {
+  return {
+    DT_UINT8, DT_QUINT8, DT_UINT16, DT_INT8, DT_QINT8, DT_INT16, DT_INT32,
+    DT_QINT32, DT_HALF, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64, DT_INT64,
+    DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
+};
+
 static bool OpFilter(KernelDef* kdef) {
   LOG(INFO) << "OpFilter : " << kdef->op();
 
@@ -69,7 +76,7 @@ static bool OpFilter(KernelDef* kdef) {
   if (kdef->op() == "SoftmaxCrossEntropyWithLogits") return true;
   // if (kdef->op() == "Pack") return true;
   // if (kdef->op() == "ConcatV2") return true;
-  // if (kdef->op() == "Reshape") return true;
+  if (kdef->op() == "Reshape") return true;
   if (kdef->op() == "MaxPool") return true;
   // if (kdef->op() == "MaxPoolGrad") return true;
 
@@ -241,12 +248,12 @@ Status XlaVsiNpuDeviceFactory::CreateDevices(
 REGISTER_LOCAL_DEVICE_FACTORY(DEVICE_XLA_VSI_NPU, XlaVsiNpuDeviceFactory, 500);
 
 REGISTER_XLA_LAUNCH_KERNEL(DEVICE_XLA_VSI_NPU, XlaLocalLaunchOp,
-                           GetVsiNpuSupportedTypes());
+                           GetVsiNpuSupportedTypesWithInt64());
 REGISTER_XLA_COMPILE_KERNEL(DEVICE_XLA_VSI_NPU, XlaCompileOp,
-                            GetVsiNpuSupportedTypes());
-REGISTER_XLA_RUN_KERNEL(DEVICE_XLA_VSI_NPU, XlaRunOp, GetVsiNpuSupportedTypes());
+                            GetVsiNpuSupportedTypesWithInt64());
+REGISTER_XLA_RUN_KERNEL(DEVICE_XLA_VSI_NPU, XlaRunOp, GetVsiNpuSupportedTypesWithInt64());
 
-REGISTER_XLA_DEVICE_KERNELS(DEVICE_XLA_VSI_NPU, GetVsiNpuSupportedTypes());
+REGISTER_XLA_DEVICE_KERNELS(DEVICE_XLA_VSI_NPU, GetVsiNpuSupportedTypesWithInt64());
 
 REGISTER_XLA_BACKEND(DEVICE_VSI_NPU_XLA_JIT, GetVsiNpuSupportedTypes(), OpFilter);
 
