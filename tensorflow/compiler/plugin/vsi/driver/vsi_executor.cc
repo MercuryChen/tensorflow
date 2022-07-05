@@ -96,16 +96,24 @@ int rpc_demo() {
 #endif
 #endif
 
+std::map<int, int> device_port_table = {
+    // {chiplet_id, port}
+    {0, 8080},
+    {1, 8090},
+};
+
 VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
                          const int device_ordinal,
                          se::PluginConfig pluginConfig)
     : kVsiContext(vsiCtx), ordinal_(device_ordinal), plugConfig_(pluginConfig) {
   std::unique_lock<std::mutex> lock(mutex_);
-  LOG(INFO) << __FUNCTION__ << " UUU 0";
   // kVsiGraphContainer[ordinal_] = kVsiContext->CreateGraph();
 #if THRIFT_RPC
   std::string serviceName = "TrainingDemo";
-  socket_ = std::make_shared<TSocket>(boss_socket_client(8080, 0));
+  socket_ = std::make_shared<TSocket>(
+      boss_socket_client(device_port_table[device_ordinal], device_ordinal));
+  LOG(INFO) << __FUNCTION__ << " UUU 0: " << device_port_table[device_ordinal]
+            << " : " << device_ordinal;
   transport_ = std::make_shared<TBufferedTransport>(socket_);
   protocol_ = std::make_shared<TBinaryProtocol>(transport_);
   multiplexed_protocol_ =
@@ -116,8 +124,8 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
 
   int32_t device_handles = client_->Enumerate();
   int32_t device_handle = device_handles - 1;
-  remote_device_ =
-      std::make_shared<tim::vx::platform::RemoteDevice>(client_, device_handle);
+  remote_device_ = std::make_shared<tim::vx::platform::RemoteDevice>(
+      client_, device_handle, device_ordinal);
   remote_executor_ =
       std::make_shared<tim::vx::platform::RemoteExecutor>(remote_device_);
 
@@ -128,7 +136,7 @@ VsiExecutor::VsiExecutor(std::shared_ptr<tim::vx::Context> vsiCtx,
 VsiExecutor::~VsiExecutor() {
   LOG(INFO) << __FUNCTION__ << " UUU X";
 #if THRIFT_RPC
-  remote_executor_->Clear();
+  // remote_executor_->Clear();
   transport_->close();
 #endif
 }

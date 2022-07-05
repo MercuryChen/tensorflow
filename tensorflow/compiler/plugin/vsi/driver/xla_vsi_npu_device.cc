@@ -13,16 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-
 #include "tensorflow/compiler/jit/kernels/xla_ops.h"
 #include "tensorflow/compiler/jit/xla_device.h"
 #include "tensorflow/compiler/jit/xla_device_ops.h"
 #include "tensorflow/compiler/plugin/vsi/driver/vsi_platform.h"
 #include "tensorflow/compiler/tf2xla/kernels/index_ops.h"
 #include "tensorflow/compiler/tf2xla/shape_util.h"
-#include "tensorflow/compiler/tf2xla/xla_op_registry.h"
 #include "tensorflow/compiler/tf2xla/tf2xla_util.h"
-
+#include "tensorflow/compiler/tf2xla/xla_op_registry.h"
 #include "tensorflow/core/framework/kernel_def.pb.h"
 #include "tensorflow/core/kernels/no_op.h"
 
@@ -32,17 +30,16 @@ const char* const DEVICE_VSI_NPU_XLA_JIT = "XLA_NPU_JIT";
 const char* const PLATFORM_NAME = "vsi-npu";
 
 std::vector<DataType> GetVsiNpuSupportedTypes() {
-  return {
-    DT_UINT8, DT_QUINT8, DT_UINT16, DT_INT8, DT_QINT8, DT_INT16, DT_INT32,
-    DT_QINT32, DT_HALF, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
-    DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
+  return {DT_UINT8,  DT_QUINT8,    DT_UINT16,     DT_INT8, DT_QINT8,
+          DT_INT16,  DT_INT32,     DT_QINT32,     DT_HALF, DT_FLOAT,
+          DT_DOUBLE, DT_COMPLEX64, DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
 };
 
 std::vector<DataType> GetVsiNpuSupportedTypesWithInt64() {
-  return {
-    DT_UINT8, DT_QUINT8, DT_UINT16, DT_INT8, DT_QINT8, DT_INT16, DT_INT32,
-    DT_QINT32, DT_HALF, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64, DT_INT64,
-    DT_COMPLEX128, DT_BOOL, DT_BFLOAT16};
+  return {DT_UINT8,      DT_QUINT8, DT_UINT16,   DT_INT8,
+          DT_QINT8,      DT_INT16,  DT_INT32,    DT_QINT32,
+          DT_HALF,       DT_FLOAT,  DT_DOUBLE,   DT_COMPLEX64,
+          DT_COMPLEX128, DT_BOOL,   DT_BFLOAT16, DT_INT64};
 };
 
 static bool OpFilter(KernelDef* kdef) {
@@ -175,9 +172,15 @@ class XlaVsiNpuDeviceFactory : public DeviceFactory {
                        std::vector<std::unique_ptr<Device>>* devices) override;
 
   virtual Status ListPhysicalDevices(std::vector<string>* devices) override {
-    //devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":0"));
-    devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":0"));
-    devices->push_back(absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":1"));
+    auto platform = se::MultiPlatformManager::PlatformWithName(PLATFORM_NAME);
+    if (!platform.ok()) {
+      return platform.status();
+    }
+    auto* p = static_cast<xla::vsiplugin::VsiPlatform*>(platform.ValueOrDie());
+    for (int i = 0; i < p->VisibleDeviceCount(); i++) {
+      devices->push_back(
+          absl::StrCat("/physical_device:", DEVICE_XLA_VSI_NPU, ":", i));
+    }
     return Status::OK();
   }
 };
@@ -208,35 +211,32 @@ Status XlaVsiNpuDeviceFactory::CreateDevices(
   if (!platform.ok()) {
     return platform.status();
   }
-  std::set<int> tmp;
-  tmp.insert(0);
-  tmp.insert(1);
-  absl::optional<std::set<int>> vsi_npu_ids({tmp});
-  for(int i = 0;i<2;i++){
-    vsi_npu_ids->insert(i);
-  }
-
   auto* p = static_cast<xla::vsiplugin::VsiPlatform*>(platform.ValueOrDie());
 
-  for(int i: *vsi_npu_ids){
+  std::set<int> vsi_npu_ids;
+  for (int i = 0; i < p->VisibleDeviceCount(); i++) {
+    vsi_npu_ids.insert(i);
+  }
+
+  for (int i : vsi_npu_ids) {
     XlaDevice::Options devopts;
     devopts.platform = platform.ValueOrDie();
     devopts.device_name_prefix = name_prefix;
     devopts.device_name = DEVICE_XLA_VSI_NPU;
     devopts.compilation_device_name = DEVICE_VSI_NPU_XLA_JIT;
-    //devopts.use_multiple_streams = true;
+    // devopts.use_multiple_streams = true;
     devopts.allowed_devices = vsi_npu_ids;
     devopts.device_ordinal = i;
     auto device = absl::make_unique<XlaDevice>(options, devopts);
 
     Status status = device->UseGpuDeviceInfo();
-    if(!status.ok()){
+    if (!status.ok()) {
       assert(true);
     }
     devices->push_back(std::move(device));
   }
 
-  //int num_devices = p->VisibleDeviceCount();
+  // int num_devices = p->VisibleDeviceCount();
 
   // for (int ordinal = 0; ordinal < num_devices; ordinal++) {
   //   devopts.device_ordinal = ordinal;
@@ -251,10 +251,13 @@ REGISTER_XLA_LAUNCH_KERNEL(DEVICE_XLA_VSI_NPU, XlaLocalLaunchOp,
                            GetVsiNpuSupportedTypesWithInt64());
 REGISTER_XLA_COMPILE_KERNEL(DEVICE_XLA_VSI_NPU, XlaCompileOp,
                             GetVsiNpuSupportedTypesWithInt64());
-REGISTER_XLA_RUN_KERNEL(DEVICE_XLA_VSI_NPU, XlaRunOp, GetVsiNpuSupportedTypesWithInt64());
+REGISTER_XLA_RUN_KERNEL(DEVICE_XLA_VSI_NPU, XlaRunOp,
+                        GetVsiNpuSupportedTypesWithInt64());
 
-REGISTER_XLA_DEVICE_KERNELS(DEVICE_XLA_VSI_NPU, GetVsiNpuSupportedTypesWithInt64());
+REGISTER_XLA_DEVICE_KERNELS(DEVICE_XLA_VSI_NPU,
+                            GetVsiNpuSupportedTypesWithInt64());
 
-REGISTER_XLA_BACKEND(DEVICE_VSI_NPU_XLA_JIT, GetVsiNpuSupportedTypes(), OpFilter);
+REGISTER_XLA_BACKEND(DEVICE_VSI_NPU_XLA_JIT, GetVsiNpuSupportedTypes(),
+                     OpFilter);
 
-} // tensorflow
+}  // namespace tensorflow

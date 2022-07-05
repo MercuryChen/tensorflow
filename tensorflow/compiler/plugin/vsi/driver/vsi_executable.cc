@@ -68,6 +68,8 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
   argument_buffers.reserve(arguments.size());
   int device_ordinal = executor->device_ordinal();
 
+  LOG(INFO) << "ExecuteAsyncOnStream VVV: " << device_ordinal;
+
   for (auto& argument : arguments) {
     const ShapeTree<MaybeOwningDeviceMemory>& buffers = argument.Buffers();
     argument_buffers.push_back(ShapedBuffer(buffers.shape(),
@@ -106,7 +108,6 @@ StatusOr<ExecutionOutput> VsiExecutable::ExecuteAsyncOnStream(
   LOG(INFO) << "computation->num_parameters: " << computation->num_parameters();
 
   auto tensor = visitor_->evaluate(*computation, arg_literals);
-
 
   // Transform the result literal back into a ShapedBuffer.
   auto root_instr = computation->root_instruction();
