@@ -11,10 +11,10 @@ tf.debugging.set_log_device_placement(True)
 MODEL_FILE = "resnet.json"
 MODEL_DATA_FILE = "resnet.h5"
 
-DUMP_DIR = "npu"
-MODEL_NAME = "tiny_v1_for_cifar"
+DUMP_DIR = "cpu" # "npu"
+MODEL_NAME = "unoffical_v1_for_cifar_with_bottleneck" # "tiny_v1_for_cifar"
 
-FULL_TEST=True
+FULL_TEST=False
 
 def load_cifar_data():
   (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
@@ -39,24 +39,40 @@ def load_fake_data(train_size, test_size, height, width, channel, num_classes):
   y_test = tf.keras.utils.to_categorical(y_test, num_classes=num_classes)
   return ((x_train, y_train), (x_test, y_test))
 
-def Conv_BN_Relu(filters, kernel_size, strides, input_layer):
+def Conv_BN_Relu(mid_filters, kernel_size, strides, input_layer):
   x = tf.keras.layers.Conv2D(
-    filters, kernel_size, strides=strides, padding='same')(input_layer)
+    mid_filters, kernel_size, strides=strides, padding='same')(input_layer)
   x = tf.keras.layers.BatchNormalization()(x)
   x = tf.keras.layers.Activation('relu')(x)
   return x
 
-def resiidual_a_or_b(input_x, filters, flag):
+def residual_a_or_b(input_x, mid_filters, flag):
   if flag == 'a':
-    x = Conv_BN_Relu(filters, (3, 3), 1, input_x)
-    x = Conv_BN_Relu(filters, (3, 3), 1, x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, input_x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, x)
     y = tf.keras.layers.Add()([x, input_x])
     return y
   elif flag == 'b':
-    x = Conv_BN_Relu(filters, (3, 3), 1, input_x)
-    x = Conv_BN_Relu(filters, (3, 3), 1, x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, input_x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, x)
 
-    input_x = Conv_BN_Relu(filters, (1, 1), 1, input_x)
+    input_x = Conv_BN_Relu(mid_filters, (1, 1), 1, input_x)
+    y = tf.keras.layers.Add()([x, input_x])
+    return y
+
+def residual_c_or_d(input_x, mid_filters, flag):
+  if flag == 'c':
+    x = Conv_BN_Relu(mid_filters, (1, 1), 1, input_x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, x)
+    x = Conv_BN_Relu(mid_filters * 4, (1, 1), 1, x)
+    y = tf.keras.layers.Add()([x, input_x])
+    return y
+  elif flag == 'd':
+    x = Conv_BN_Relu(mid_filters, (1, 1), 1, input_x)
+    x = Conv_BN_Relu(mid_filters, (3, 3), 1, x)
+    x = Conv_BN_Relu(mid_filters * 4, (1, 1), 1, x)
+
+    input_x = Conv_BN_Relu(mid_filters * 4, (1, 1), 1, input_x)
     y = tf.keras.layers.Add()([x, input_x])
     return y
 
@@ -70,17 +86,17 @@ def generate_v1_model():
   conv1_Maxpooling = tf.keras.layers.MaxPooling2D((3, 3),
     strides=2, padding='same')(conv1)
   # conv2_x
-  x = resiidual_a_or_b(conv1_Maxpooling, 64, 'b')
-  x = resiidual_a_or_b(x, 64, 'a')
+  x = residual_a_or_b(conv1_Maxpooling, 64, 'b')
+  x = residual_a_or_b(x, 64, 'a')
   # conv3_x
-  x = resiidual_a_or_b(x, 128, 'b')
-  x = resiidual_a_or_b(x, 128, 'a')
+  x = residual_a_or_b(x, 128, 'b')
+  x = residual_a_or_b(x, 128, 'a')
   # conv4_x
-  x = resiidual_a_or_b(x, 256, 'b')
-  x = resiidual_a_or_b(x, 256, 'a')
+  x = residual_a_or_b(x, 256, 'b')
+  x = residual_a_or_b(x, 256, 'a')
   # conv5_x
-  x = resiidual_a_or_b(x, 512, 'b')
-  x = resiidual_a_or_b(x, 512, 'a')
+  x = residual_a_or_b(x, 512, 'b')
+  x = residual_a_or_b(x, 512, 'a')
   x = tf.keras.layers.GlobalAveragePooling2D()(x)
   x = tf.keras.layers.Flatten()(x)
   x = tf.keras.layers.Dense(1000)(x)
@@ -89,21 +105,69 @@ def generate_v1_model():
   model = tf.keras.models.Model([input_layer], [y])
   return model
 
+def generate_v1_model_with_bottleneck():
+  input_layer = tf.keras.layers.Input((224, 224, 3))
+  conv1 = Conv_BN_Relu(64, (7, 7), 2, input_layer)
+  conv1_Maxpooling = tf.keras.layers.MaxPooling2D((3, 3),
+    strides=2, padding='same')(conv1)
+  x = conv1_Maxpooling
+
+  # conv2_x to conv5_x
+  mid_filters = 64 # start from 64, end with 512
+  num_residuals = [3, 4, 6, 3]
+  for i, num_residual in enumerate(num_residuals):
+    for j in range(num_residual):
+      if j == 0:
+        x = residual_c_or_d(x, mid_filters, 'd')
+      else:
+        x = residual_c_or_d(x, mid_filters, 'c')
+    mid_filters *= 2
+
+  x = tf.keras.layers.GlobalAveragePooling2D()(x)
+  x = tf.keras.layers.Flatten()(x)
+  x = tf.keras.layers.Dense(1000)(x)
+  y = tf.keras.layers.Softmax(axis=-1)(x)
+  model = tf.keras.models.Model([input_layer], [y])
+  return model
+  
 # modify for cifar dataset
 def generate_cifar_model():
   input_layer = tf.keras.layers.Input((32, 32, 3))
   conv1 = Conv_BN_Relu(64, (3, 3), 1, input_layer)
-  x = resiidual_a_or_b(conv1, 64, 'b')
-  x = resiidual_a_or_b(x, 64, 'a')
+  x = residual_a_or_b(conv1, 64, 'b')
+  x = residual_a_or_b(x, 64, 'a')
   # conv3_x
-  x = resiidual_a_or_b(x, 128, 'b')
-  x = resiidual_a_or_b(x, 128, 'a')
+  x = residual_a_or_b(x, 128, 'b')
+  x = residual_a_or_b(x, 128, 'a')
   # conv4_x
-  x = resiidual_a_or_b(x, 256, 'b')
-  x = resiidual_a_or_b(x, 256, 'a')
+  x = residual_a_or_b(x, 256, 'b')
+  x = residual_a_or_b(x, 256, 'a')
   # conv5_x
-  x = resiidual_a_or_b(x, 512, 'b')
-  x = resiidual_a_or_b(x, 512, 'a')
+  x = residual_a_or_b(x, 512, 'b')
+  x = residual_a_or_b(x, 512, 'a')
+  x = tf.keras.layers.GlobalAveragePooling2D()(x)
+  x = tf.keras.layers.Flatten()(x)
+  x = tf.keras.layers.Dense(10)(x)
+  y = tf.keras.layers.Softmax(axis=-1)(x)
+  model = tf.keras.models.Model([input_layer], [y])
+  return model
+
+def generate_cifar_model_with_bottleneck():
+  input_layer = tf.keras.layers.Input((32, 32, 3))
+  conv1 = Conv_BN_Relu(64, (3, 3), 2, input_layer)
+  x = conv1
+
+  # conv2_x to conv5_x
+  mid_filters = 64 # start from 64, end with 512
+  num_residuals = [3, 4, 6, 3]
+  for i, num_residual in enumerate(num_residuals):
+    for j in range(num_residual):
+      if j == 0:
+        x = residual_c_or_d(x, mid_filters, 'd')
+      else:
+        x = residual_c_or_d(x, mid_filters, 'c')
+    mid_filters *= 2
+
   x = tf.keras.layers.GlobalAveragePooling2D()(x)
   x = tf.keras.layers.Flatten()(x)
   x = tf.keras.layers.Dense(10)(x)
@@ -114,8 +178,8 @@ def generate_cifar_model():
 def generate_tiny_model():
   input_layer = tf.keras.layers.Input((224, 224, 3))
   conv1 = Conv_BN_Relu(64, (3, 3), 1, input_layer)
-  x = resiidual_a_or_b(conv1, 64, 'b')
-  x = resiidual_a_or_b(x, 64, 'a')
+  x = residual_a_or_b(conv1, 64, 'b')
+  x = residual_a_or_b(x, 64, 'a')
 
   x = tf.keras.layers.GlobalAveragePooling2D()(x)
   x = tf.keras.layers.Flatten()(x)
@@ -128,8 +192,8 @@ def generate_tiny_model():
 def generate_tiny_cifar_model():
   input_layer = tf.keras.layers.Input((32, 32, 3))
   conv1 = Conv_BN_Relu(64, (3, 3), 1, input_layer)
-  x = resiidual_a_or_b(conv1, 64, 'b')
-  x = resiidual_a_or_b(x, 64, 'a')
+  x = residual_a_or_b(conv1, 64, 'b')
+  x = residual_a_or_b(x, 64, 'a')
 
   x = tf.keras.layers.GlobalAveragePooling2D()(x)
   x = tf.keras.layers.Flatten()(x)
@@ -176,8 +240,16 @@ model_list = [
      'model': 'generate_v1_model()',
      'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
     },
+    {'name': "unoffical_v1_with_bottleneck",
+     'model': 'generate_v1_model_with_bottleneck()',
+     'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
+    },
     {'name': "unoffical_v1_for_cifar",
      'model': 'generate_cifar_model()',
+     'data_set': 'load_cifar_data()',
+    },
+    {'name': "unoffical_v1_for_cifar_with_bottleneck",
+     'model': 'generate_cifar_model_with_bottleneck()',
      'data_set': 'load_cifar_data()',
     },
     {'name': "tiny_v1_for_cifar",
