@@ -1085,6 +1085,123 @@ Status BaseVisitor::HandleBroadcast(HloInstruction* hlo) {
   return Status::OK();
 }
 
+Status BaseVisitor::HandleSelectAndScatter(HloInstruction* hlo) {
+  LOG(INFO) << "PROCESS " << __FUNCTION__;
+  auto shape = hlo->shape();
+  const auto& window = hlo->window();
+  // auto* select_and_scatter_hlo = Cast<HloSelectAndScatterInstruction>(hlo);
+
+  if (shape.dimensions().size() != 4) {
+    return tensorflow::errors::Unimplemented("Only support pool2d.");
+  }
+
+  {
+    std::ostringstream ss;
+    auto dims = window.dimensions();
+    for (int i = 0; i < dims.size(); i++) {
+      ss << dims[i].size() << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " size: " << ss.str();
+  }
+
+  {
+    std::ostringstream ss;
+    auto dims = window.dimensions();
+    for (int i = 0; i < dims.size(); i++) {
+      ss << dims[i].stride() << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " stride: " << ss.str();
+  }
+
+  {
+    std::ostringstream ss;
+    auto dims = window.dimensions();
+    for (int i = 0; i < dims.size(); i++) {
+      ss << dims[i].padding_low() << " " << dims[i].padding_high() << " ";
+    }
+    LOG(INFO) << __FUNCTION__ << " pad: " << ss.str();
+  }
+
+  auto dims = window.dimensions();
+  std::array<uint32_t, 2> ksize = {dims[2].size(), dims[1].size()};
+  std::array<uint32_t, 2> stride = {dims[2].stride(), dims[1].stride()};
+  tim::vx::PadType padtype;
+  if (dims[2].padding_low()  != 0 ||
+      dims[2].padding_high() != 0 ||
+      dims[1].padding_low()  != 0 ||
+      dims[1].padding_high() != 0) {
+    padtype = tim::vx::PadType::SAME;
+  }
+  else {
+    padtype = tim::vx::PadType::VALID;
+  }
+
+  auto in_tensor = GetEvaluatedTensorFor(hlo->operand(0))[0];
+  auto source_tensor = GetEvaluatedTensorFor(hlo->operand(1))[0];
+  auto out_tensor = createTensorFromShape(
+      shape, is_root_hlo(hlo) ? tim::vx::TensorAttribute::OUTPUT
+                              : tim::vx::TensorAttribute::TRANSIENT);
+  
+  // std::vector<uint32_t> in_perm = {2, 3, 1, 0}; // NCWH to WHCN, for unit test
+  // auto in_tensor_spec = in_tensor->GetSpec();
+  // auto in_tensor_shape = in_tensor_spec.shape_;
+  // std::vector<uint32_t> in_tensor_tmp_shape = {
+  //     in_tensor_shape[2], in_tensor_shape[3], in_tensor_shape[1],
+  //     in_tensor_shape[0]};
+  std::vector<uint32_t> in_perm = {1, 2, 0, 3}; // CWHN to WHCN
+  auto in_tensor_spec = in_tensor->GetSpec();
+  auto in_tensor_shape = in_tensor_spec.shape_;
+  std::vector<uint32_t> in_tensor_tmp_shape = {
+      in_tensor_shape[1], in_tensor_shape[2], in_tensor_shape[0],
+      in_tensor_shape[3]};
+  tim::vx::TensorSpec in_tensor_tmp_sec(in_tensor_spec.datatype_,
+                                        in_tensor_tmp_shape,
+                                        tim::vx::TensorAttribute::TRANSIENT);
+  auto in_tensor_tmp = graph_->CreateTensor(in_tensor_tmp_sec);
+
+  auto source_tensor_spec = source_tensor->GetSpec();
+  auto source_tensor_shape = source_tensor_spec.shape_;
+  std::vector<uint32_t> source_tensor_tmp_shape = {
+      source_tensor_shape[1], source_tensor_shape[2], source_tensor_shape[0],
+      source_tensor_shape[3]};
+  tim::vx::TensorSpec source_tensor_tmp_spec(source_tensor_spec.datatype_,
+                                             source_tensor_tmp_shape,
+                                             tim::vx::TensorAttribute::TRANSIENT);
+  auto source_tensor_tmp = graph_->CreateTensor(source_tensor_tmp_spec);
+
+  // std::vector<uint32_t> out_perm = {3, 2, 0, 1};  // WHCN -> NCWH, for unit test
+  // auto out_tensor_spec = out_tensor->GetSpec();
+  // auto out_tensor_shape = out_tensor_spec.shape_;
+  // std::vector<uint32_t> out_tensor_tmp_shape = {
+  //     out_tensor_shape[2], out_tensor_shape[3], out_tensor_shape[1],
+  //     out_tensor_shape[0]};
+  std::vector<uint32_t> out_perm = {2, 0, 1, 3};  // WHCN to CWHN
+  auto out_tensor_spec = out_tensor->GetSpec();
+  auto out_tensor_shape = out_tensor_spec.shape_;
+  std::vector<uint32_t> out_tensor_tmp_shape = {
+      out_tensor_shape[2], out_tensor_shape[0], out_tensor_shape[1],
+      out_tensor_shape[3]};
+  tim::vx::TensorSpec out_tensor_tmp_sec(out_tensor_spec.datatype_,
+                                         out_tensor_tmp_shape,
+                                         tim::vx::TensorAttribute::TRANSIENT);
+  auto out_tensor_tmp = graph_->CreateTensor(out_tensor_tmp_sec);
+
+  auto in_transpose = graph_->CreateOperation<tim::vx::ops::Transpose>(in_perm);
+  in_transpose->BindInput(in_tensor).BindOutput(in_tensor_tmp);
+  auto source_transpose = graph_->CreateOperation<tim::vx::ops::Transpose>(in_perm);
+  source_transpose->BindInput(source_tensor).BindOutput(source_tensor_tmp);
+
+  auto op = graph_->CreateOperation<tim::vx::ops::MaxpoolGrad>(padtype,
+                                                               ksize, stride);
+  op->BindInputs({in_tensor_tmp, source_tensor_tmp}).BindOutput(out_tensor_tmp);
+
+  auto out_transpose = graph_->CreateOperation<tim::vx::ops::Transpose>(out_perm);
+  out_transpose->BindInput(out_tensor_tmp).BindOutput(out_tensor);
+
+  kVsiRunTensorContainer_[hlo].push_back(out_tensor);
+  return Status::OK();
+}
+
 Status BaseVisitor::HandleConcatenate(HloInstruction* hlo) {
   LOG(INFO) << "PROCESS " << __FUNCTION__;
   auto shape = hlo->shape();

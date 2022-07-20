@@ -167,6 +167,8 @@ class BaseVisitor : public DfsHloVisitor {
 
   Status HandleSelect(HloInstruction* hlo) override;
 
+  Status HandleSelectAndScatter(HloInstruction* hlo) override;
+
   Status HandleReduce(HloInstruction* hlo) override;
 
   Status HandleReduceWindow(HloInstruction* hlo) override;
@@ -215,7 +217,7 @@ class BaseVisitor : public DfsHloVisitor {
   UNIMPLEMENTED(HandleSlice)
   UNIMPLEMENTED(HandleDynamicSlice)
   UNIMPLEMENTED(HandleDynamicUpdateSlice)
-  UNIMPLEMENTED(HandleSelectAndScatter)
+  // UNIMPLEMENTED(HandleSelectAndScatter)
   UNIMPLEMENTED(HandleWhile)
   UNIMPLEMENTED(HandlePad)
   UNIMPLEMENTED(HandleSort)
