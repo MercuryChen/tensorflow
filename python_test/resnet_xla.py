@@ -2,6 +2,7 @@ import os
 # input("pid: " + str(os.getpid()) +", press enter after attached")
 import numpy as np
 import tensorflow as tf
+from resnet_model import resnet50 as resnet50V1_5
 print("tf verison: " + tf.__version__)
 # input("pid: " + str(os.getpid()) +", press enter after set breakpoints")
 tf.keras.backend.clear_session()
@@ -11,10 +12,14 @@ tf.debugging.set_log_device_placement(True)
 MODEL_FILE = "resnet.json"
 MODEL_DATA_FILE = "resnet.h5"
 
-DUMP_DIR = "cpu" # "npu"
-MODEL_NAME = "unoffical_v1_for_cifar_with_bottleneck" # "tiny_v1_for_cifar"
+DUMP_DIR = "res50V1_5_tf_cpu" # "npu"
+MODEL_NAME = "resnet50_v1.5" # "tiny_v1_for_cifar"
 
 FULL_TEST=False
+ENABLE_MULTI_DEVICE = False
+
+strategy = tf.distribute.MirroredStrategy(cross_device_ops=tf.distribute.ReductionToOneDevice()) \
+  if ENABLE_MULTI_DEVICE else None
 
 def load_cifar_data():
   (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
@@ -203,7 +208,11 @@ def generate_tiny_cifar_model():
   return model
 
 def generate_v2_model():
-  model = tf.keras.applications.ResNet50V2()
+  model = tf.keras.applications.resnet_v2.ResNet50V2()
+  return model
+
+def generate_v1_model():
+  model = tf.keras.applications.resnet50.ResNet50()
   return model
 
 def compile_model(model):
@@ -236,6 +245,10 @@ model_list = [
      'model': 'generate_v2_model()',
      'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
     },
+    {'name': "offical_v1",
+     'model': 'generate_v1_model()',
+     'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
+    },
     {'name': "unoffical_v1",
      'model': 'generate_v1_model()',
      'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
@@ -260,6 +273,10 @@ model_list = [
      'model': 'generate_tiny_model()',
      'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
     },
+    {'name': "resnet50_v1.5",
+     'model': 'resnet50V1_5(1000)',
+     'data_set': 'load_fake_data(TRAIN_SIZE, 1, 224, 224, 3, 1000)',
+    },
 ]
 
 model_info = get_model(model_list, MODEL_NAME)
@@ -281,12 +298,20 @@ if not FULL_TEST:
   x_test = x_test[0:1,:,:,:]
   y_test = y_test[0:1,:]
 
-if os.path.exists(MODEL_FILE):
-  json_string = open(MODEL_FILE, 'r').read() 
-  model = tf.keras.models.model_from_json(json_string)
-  model.load_weights(MODEL_DATA_FILE)
+def load_model():
+  if os.path.exists(MODEL_FILE):
+    json_string = open(MODEL_FILE, 'r').read() 
+    model = tf.keras.models.model_from_json(json_string)
+    model.load_weights(MODEL_DATA_FILE)
+  else:
+    model = eval(model_info['model'])
+  return model
+
+if ENABLE_MULTI_DEVICE:
+    with strategy.scope():
+        model = load_model()
 else:
-  model = eval(model_info['model'])
+    model = load_model()
 
 model = compile_model(model)
 model.summary()
